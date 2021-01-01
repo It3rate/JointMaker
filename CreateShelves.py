@@ -3,6 +3,7 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
+from . import TurtleSketch
 
 f = adsk.fusion
 core = adsk.core
@@ -90,6 +91,13 @@ class JointMaker:
     def createWall(self, profile):
         extrudes = self.extrudeThreeLayers(profile)
 
+        root.isConstructionFolderLightBulbOn = True
+        planeInput:f.ConstructionPlaneInput = root.constructionPlanes.createInput()
+        dist = self.getValueInputMM(pSHELF_WIDTH)
+        planeInput.setByOffset(self.baseSketch.referencePlane, dist)
+        self.midPlane:f.ConstructionPlane = root.constructionPlanes.add(planeInput)
+        self.midPlane.name = "MidPlane"
+
         wallStartFace = extrudes[0].startFaces.item(0)
         sketch:f.Sketch = self.comp.sketches.add(wallStartFace)
         fullProfile = self.createWallOuterCuts(sketch)
@@ -100,6 +108,8 @@ class JointMaker:
         sketch:f.Sketch = self.comp.sketches.add(wallNextFace)
         fullProfile = self.createWallInsideCuts(sketch)
         self.cutBodiesWithProfiles([ extrudes[1].bodies.item(0), extrudes[2].bodies.item(0)], [fullProfile,fullProfile])
+
+        self.mirrorComponent(self.wallComp, self.midPlane, False)
 
     
     def createWallOuterCuts(self, sketch:f.Sketch):
@@ -151,9 +161,26 @@ class JointMaker:
 
     def createShelves(self):
         for idx, line in enumerate(self.shelfLines):
-            self.createShelf(line, idx)
+            comp = self.createHalfShelf(line, idx)
+            self.mirrorComponent(comp, self.midPlane, True)
 
-    def createShelf(self, line:f.SketchLine, index):
+    # def mirrorComponent(self, component:f.Component, plane:f.ConstructionPlane):
+    #     mirrorFeatures = component.features.mirrorFeatures
+    #     inputEntites = adsk.core.ObjectCollection.create()
+    #     inputEntites.add(component)
+    #     mirrorInput:f.MirrorFeatureInput = mirrorFeatures.createInput(inputEntites, plane)
+    #     mirrorFeature = mirrorFeatures.add(mirrorInput)
+
+    def mirrorComponent(self, component:f.Component, plane:f.ConstructionPlane, isJoined:bool = False):
+        mirrorFeatures = component.features.mirrorFeatures
+        inputEntites = adsk.core.ObjectCollection.create()
+        for body in component.bRepBodies:
+            inputEntites.add(body)
+        mirrorInput:f.MirrorFeatureInput = mirrorFeatures.createInput(inputEntites, plane)
+        mirrorInput.isCombine = isJoined
+        mirrorFeature = mirrorFeatures.add(mirrorInput)
+
+    def createHalfShelf(self, line:f.SketchLine, index):
         self.comp = self.createComponent("shelf"+ str(index))
         plane = self.createOrthoganalPlane(line)
         sketch:f.Sketch = self.createSketch(plane)
@@ -180,94 +207,14 @@ class JointMaker:
         constraints.addSymmetry(lines[3], lines[5], construction)
         constraints.addSymmetry(lines[9], lines[13], construction)
         # largest to smallest changes tend to be best here (or distances could go negative unintentionally)
-        self.setDistances(sketch, lines, [[3, pSHELF_WIDTH], [12, pZIP_WIDTH + " * 2"], [14, pZIP_WIDTH], [1, pOUTER + " + " + pMID], [2, pLIP], [13, pZIP_LENGTH], [11, pZIP_LENGTH + " / 2"]])
+        self.setDistances(sketch, lines, [[3, pSHELF_WIDTH + " - " + pFULL], [12, pZIP_WIDTH + " * 2"], [14, pZIP_WIDTH], [1, pOUTER + " + " + pMID], [2, pLIP], [13, pZIP_LENGTH], [11, pZIP_LENGTH + " / 2"]])
 
         cutProfile = sketch.profiles.item(0)
         fullProfile = self.combineProfiles(sketch)
-        self.extrudeThreeLayers([fullProfile,cutProfile,fullProfile])
-    
-    def removeLargestProfile(self, profiles:core.ObjectCollection):
-        largestIndex = 0
-        largestArea = 0
-        for i in range(profiles.count):
-            areaProps = profiles.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
-            if areaProps.area > largestArea:
-                largestArea = areaProps.area
-                largestIndex = i
-        result = profiles.item(largestIndex)        
-        profiles.removeByIndex(largestIndex)
-        return result
+        shelfExtrusions = self.extrudeThreeLayers([fullProfile,cutProfile,fullProfile])
         
-    def setDistances(self, sketch:f.Sketch, lines, indexValues):
-        for pair in indexValues:
-             self.addLineLength(sketch, lines[pair[0]], pair[1])
-
-    def makeVertHorz(self, constraints:f.GeometricConstraints, lines, indexes):
-        for index in indexes:
-            sp = lines[index].startSketchPoint.geometry
-            ep = lines[index].endSketchPoint.geometry
-            if(abs(sp.x - ep.x) < abs(sp.y - ep.y)):
-                constraints.addVertical(lines[index])
-            else:
-                constraints.addHorizontal(lines[index])
-
-    def makeEqual(self, constraints:f.GeometricConstraints, curves, pairIndexes):
-        for pair in pairIndexes:
-            constraints.addEqual(curves[pair[0]], curves[pair[1]])
-
-    def makeParallel(self, constraints:f.GeometricConstraints, lines, pairIndexes):
-        for pair in pairIndexes:
-            constraints.addParallel(lines[pair[0]], lines[pair[1]])
-            
-    def makePerpendicular(self, constraints:f.GeometricConstraints, lines, pairIndexes):
-        for pair in pairIndexes:
-            constraints.addPerpendicular(lines[pair[0]], lines[pair[1]])
-
-    def makeCollinear(self, constraints:f.GeometricConstraints, lines, pairIndexes):
-        for pair in pairIndexes:
-            constraints.addCollinear(lines[pair[0]], lines[pair[1]])
-
-    def addLineLength(self, sketch:f.Sketch, line:f.SketchLine, expr):
-        dim = sketch.sketchDimensions.addDistanceDimension(line.startSketchPoint, line.endSketchPoint, \
-            f.DimensionOrientations.AlignedDimensionOrientation, line.startSketchPoint.geometry)
-        dim.parameter.expression = expr
-
-    def addPointsDist(self, sketch:f.Sketch, p0:f.SketchPoint, p1:f.SketchPoint, expr):
-        dim = sketch.sketchDimensions.addDistanceDimension(p0, p1, \
-            f.DimensionOrientations.AlignedDimensionOrientation, p0.geometry)
-        dim.parameter.expression = expr
-
-    def addTwoLinesDist(self, sketch:f.Sketch, line0:f.SketchLine, line1:f.SketchLine, expr):
-        dim = sketch.sketchDimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
-        dim.parameter.expression = expr
-
-    def addMidpointConstructionLine(self, sketch:f.Sketch, baseLine:f.SketchLine, lengthExpr, toLeft=True):
-        constraints = sketch.geometricConstraints
-        path = "XM1L90F1X" if toLeft else "XM1R90F1X"
-        lines = Turtle.draw(sketch, baseLine, path)
-        construction = lines[0]
-        constraints.addMidPoint(construction.startSketchPoint, baseLine)
-        #constraints.addPerpendicular(construction, baseLine)
-        self.addLineLength(sketch, construction, lengthExpr)
-        return lines[0]
-
-    def createRect(self, sketch:f.Sketch, baseLine:f.SketchLine, widthExpr, sideOffsetExpr = None):
-        contraints = sketch.geometricConstraints
-        opp:f.SketchLine = self.addParallelLine(sketch, baseLine)
-
-        constraints.addEqual(baseLine, opp)
-        dim = sketch.sketchDimensions.addDistanceDimension(baseLine.startSketchPoint, opp.startSketchPoint, \
-            f.DimensionOrientations.AlignedDimensionOrientation, baseLine.startSketchPoint.geometry)
-        dim.parameter.expression = widthExpr
-
-        side0 = sketch.sketchCurves.sketchLines.addByTwoPoints(baseLine.startSketchPoint, opp.startSketchPoint)
-        constraints.addPerpendicular(baseLine, side0)
-
-        side1 = sketch.sketchCurves.sketchLines.addByTwoPoints(baseLine.endSketchPoint, opp.endSketchPoint)
-        constraints.addPerpendicular(baseLine, side1)
-        constraints.addPerpendicular(opp, side1)
-        return [baseLine, side0, opp, side1]
-
+        return self.comp
+    
     def createComponent(self, name):
         occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         occ.component.name = name
@@ -281,12 +228,6 @@ class JointMaker:
         planeInput = self.comp.constructionPlanes.createInput()
         planeInput.setByAngle(line, adsk.core.ValueInput.createByReal(-math.pi/2.0), refPlane)
         result = self.comp.constructionPlanes.add(planeInput)
-        return result
-
-    def combineProfiles(self, sketch:f.SketchLine):
-        result = core.ObjectCollection.create()
-        for p in sketch.profiles:
-            result.add(p)
         return result
 
     def extrudeThreeLayers(self, profiles):
@@ -414,7 +355,95 @@ class JointMaker:
         self.colOuter.copyTo(design)
         self.colMid = matLib.itemByName("Plastic - Translucent Matte (Green)")
         self.colMid.copyTo(design)
+    
+    def setDistances(self, sketch:f.Sketch, lines, indexValues):
+        for pair in indexValues:
+             self.addLineLength(sketch, lines[pair[0]], pair[1])
+
+    def makeVertHorz(self, constraints:f.GeometricConstraints, lines, indexes):
+        for index in indexes:
+            sp = lines[index].startSketchPoint.geometry
+            ep = lines[index].endSketchPoint.geometry
+            if(abs(sp.x - ep.x) < abs(sp.y - ep.y)):
+                constraints.addVertical(lines[index])
+            else:
+                constraints.addHorizontal(lines[index])
+
+    def makeEqual(self, constraints:f.GeometricConstraints, curves, pairIndexes):
+        for pair in pairIndexes:
+            constraints.addEqual(curves[pair[0]], curves[pair[1]])
+
+    def makeParallel(self, constraints:f.GeometricConstraints, lines, pairIndexes):
+        for pair in pairIndexes:
+            constraints.addParallel(lines[pair[0]], lines[pair[1]])
+            
+    def makePerpendicular(self, constraints:f.GeometricConstraints, lines, pairIndexes):
+        for pair in pairIndexes:
+            constraints.addPerpendicular(lines[pair[0]], lines[pair[1]])
+
+    def makeCollinear(self, constraints:f.GeometricConstraints, lines, pairIndexes):
+        for pair in pairIndexes:
+            constraints.addCollinear(lines[pair[0]], lines[pair[1]])
+
+    def addLineLength(self, sketch:f.Sketch, line:f.SketchLine, expr):
+        dim = sketch.sketchDimensions.addDistanceDimension(line.startSketchPoint, line.endSketchPoint, \
+            f.DimensionOrientations.AlignedDimensionOrientation, line.startSketchPoint.geometry)
+        dim.parameter.expression = expr
+
+    def addPointsDist(self, sketch:f.Sketch, p0:f.SketchPoint, p1:f.SketchPoint, expr):
+        dim = sketch.sketchDimensions.addDistanceDimension(p0, p1, \
+            f.DimensionOrientations.AlignedDimensionOrientation, p0.geometry)
+        dim.parameter.expression = expr
+
+    def addTwoLinesDist(self, sketch:f.Sketch, line0:f.SketchLine, line1:f.SketchLine, expr):
+        dim = sketch.sketchDimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
+        dim.parameter.expression = expr
+
+    def addMidpointConstructionLine(self, sketch:f.Sketch, baseLine:f.SketchLine, lengthExpr, toLeft=True):
+        constraints = sketch.geometricConstraints
+        path = "XM1L90F1X" if toLeft else "XM1R90F1X"
+        lines = Turtle.draw(sketch, baseLine, path)
+        construction = lines[0]
+        constraints.addMidPoint(construction.startSketchPoint, baseLine)
+        #constraints.addPerpendicular(construction, baseLine)
+        self.addLineLength(sketch, construction, lengthExpr)
+        return lines[0]
+
+    def combineProfiles(self, sketch:f.SketchLine):
+        result = core.ObjectCollection.create()
+        for p in sketch.profiles:
+            result.add(p)
+        return result
         
+    def removeLargestProfile(self, profiles:core.ObjectCollection):
+        largestIndex = 0
+        largestArea = 0
+        for i in range(profiles.count):
+            areaProps = profiles.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
+            if areaProps.area > largestArea:
+                largestArea = areaProps.area
+                largestIndex = i
+        result = profiles.item(largestIndex)        
+        profiles.removeByIndex(largestIndex)
+        return result
+        
+    def createRect(self, sketch:f.Sketch, baseLine:f.SketchLine, widthExpr, sideOffsetExpr = None):
+        contraints = sketch.geometricConstraints
+        opp:f.SketchLine = self.addParallelLine(sketch, baseLine)
+
+        constraints.addEqual(baseLine, opp)
+        dim = sketch.sketchDimensions.addDistanceDimension(baseLine.startSketchPoint, opp.startSketchPoint, \
+            f.DimensionOrientations.AlignedDimensionOrientation, baseLine.startSketchPoint.geometry)
+        dim.parameter.expression = widthExpr
+
+        side0 = sketch.sketchCurves.sketchLines.addByTwoPoints(baseLine.startSketchPoint, opp.startSketchPoint)
+        constraints.addPerpendicular(baseLine, side0)
+
+        side1 = sketch.sketchCurves.sketchLines.addByTwoPoints(baseLine.endSketchPoint, opp.endSketchPoint)
+        constraints.addPerpendicular(baseLine, side1)
+        constraints.addPerpendicular(opp, side1)
+        return [baseLine, side0, opp, side1]
+    
     def projectLine(self, sketch:f.Sketch, line:f.SketchLine):
         pp0 = sketch.project(line.startSketchPoint)
         pp1 = sketch.project(line.endSketchPoint)
@@ -457,7 +486,7 @@ class JointMaker:
         for line in lines:
             isTouched = False
             for t in touched:
-                if self.isEquivelentLine(t, line):
+                if self.isEquivalentLine(t, line):
                     isTouched = True
                     break
             if not isTouched:
@@ -467,7 +496,7 @@ class JointMaker:
         self.printLines(result)
         return result
     
-    def isEquivelentLine(self, a:f.SketchLine, b:f.SketchLine, maxDist = 0):
+    def isEquivalentLine(self, a:f.SketchLine, b:f.SketchLine, maxDist = 0):
         result = abs(a.geometry.startPoint.x - b.geometry.startPoint.x) <= maxDist and \
             abs(a.geometry.startPoint.y - b.geometry.startPoint.y) <= maxDist and \
             abs(a.geometry.endPoint.x - b.geometry.endPoint.x) <= maxDist and \
@@ -496,11 +525,11 @@ class JointMaker:
         print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")
 
 class ZipJoint:
-    def createShelf:
+    def createShelf(self):
         pass
-    def createWallCuts:
+    def createWallCuts(self):
         pass
-    
+
 class Turtle:
     # draws a polyline using directions and distances. Distances are percent of line lenght, start direction is p0->p1 of line.
     @staticmethod
