@@ -18,9 +18,13 @@ class TurtleSketch:
 
 
 
-    def draw(self, line:f.SketchLine, *data:str, isClosed=False):
+    def draw(self, line:f.SketchLine, *data:str):
         data = " ".join(data)
-        return self.path.draw(line, data, isClosed)
+        return self.path.draw(line, data, False)
+
+    def drawClosed(self, line:f.SketchLine, *data:str):
+        data = " ".join(data)
+        return self.path.draw(line, data, True)
 
     def constrain(self, constraintList):
         self.path.setConstraints(constraintList)

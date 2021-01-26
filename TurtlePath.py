@@ -94,6 +94,12 @@ class TurtlePath:
                 for valsIndex in range(0, len(data), 2):
                     lines = self.grabLines(data, valsIndex, 2)
                     self.makeCollinear(lines[0], lines[1])
+
+            elif cmd.startswith('MI'): # MIDPOINT
+                for valsIndex in range(0, len(data), 3):
+                    pts = self.grabPoints(data, valsIndex, 2)
+                    lines = self.grabLines(data, valsIndex + 2, 1)
+                    self.makeMidpoint(pts[0], lines[0])
                     
             elif cmd.startswith('SY'): # SYMETRIC
                 for valsIndex in range(0, len(data), 3):
@@ -165,6 +171,9 @@ class TurtlePath:
         
     def makeSymetric(self, left:f.SketchLine, right:f.SketchLine, center:f.SketchLine):
         self.constraints.addSymmetry(left, right, center)
+
+    def makeMidpoint(self, point:f.SketchPoint, line:f.SketchLine):
+        self.constraints.addMidPoint(point, line)
 
     def setLineLength(self, line:f.SketchLine, expr:str):
         dim = self.dimensions.addDistanceDimension(line.startSketchPoint, line.endSketchPoint, \
