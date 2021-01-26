@@ -28,7 +28,7 @@ class TurtlePath:
         for cmd in cmds:
             num = float(cmd[1:]) if len(cmd) > 1 else 90
             if cmd.startswith('F'):
-                p2 = self.getEndPoint(curPt.geometry, angle, (num / 100.0) * length)
+                p2 = TurtlePath.getEndPoint(curPt.geometry, angle, (num / 100.0) * length)
                 lastLine = self.sketch.sketchCurves.sketchLines.addByTwoPoints(curPt, p2)
                 lines.append(lastLine)
                 curPt = lastLine.endSketchPoint
@@ -37,7 +37,7 @@ class TurtlePath:
             elif cmd.startswith('R'):
                 angle += num/180.0 * math.pi
             elif cmd.startswith('M'):
-                curPt = self.sketch.sketchPoints.add(self.getEndPoint(curPt.geometry, angle, (num / 100.0) * length))
+                curPt = self.sketch.sketchPoints.add(TurtlePath.getEndPoint(curPt.geometry, angle, (num / 100.0) * length))
             elif cmd.startswith('X'):
                 lastLine.isConstruction = True
             elif cmd.startswith('#'):
@@ -217,19 +217,22 @@ class TurtlePath:
         return line2
     
 
-
-    def getEndPoint(self, start:core.Point3D, angle:float, distance:float):
+        
+    @staticmethod
+    def getEndPoint(start:core.Point3D, angle:float, distance:float):
         x = start.x + distance * math.cos(angle)
         y = start.y + distance * math.sin(angle) 
         return core.Point3D.create(x, y, 0)
 
-    def isOnLine(self, a:core.Point3D, line:f.SketchLine):
+    @staticmethod
+    def isOnLine(a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         cross = (c.y - a.y) * (b.x - a.x) - (c.x - a.x) * (b.y - a.y)
         return abs(cross) < 0.0001
 
-    def distanceToLine(self, a:core.Point3D, line:f.SketchLine):
+    @staticmethod
+    def distanceToLine(a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         x_diff = c.x - b.x
@@ -237,3 +240,31 @@ class TurtlePath:
         num = abs(y_diff * a.x - x_diff * a.y + c.x*b.y - c.y*b.x)
         den = math.sqrt(y_diff**2 + x_diff**2)
         return num / den
+
+    @staticmethod
+    def isEquivalentLine(a:f.SketchLine, b:f.SketchLine, maxDist = 0):
+        result = abs(a.geometry.startPoint.x - b.geometry.startPoint.x) <= maxDist and \
+            abs(a.geometry.startPoint.y - b.geometry.startPoint.y) <= maxDist and \
+            abs(a.geometry.endPoint.x - b.geometry.endPoint.x) <= maxDist and \
+            abs(a.geometry.endPoint.y - b.geometry.endPoint.y) <= maxDist
+        return result
+
+        
+    def printLines(self, lines, newLine="\n"):
+        spc = "Line: "
+        for line in lines:
+            print(spc, end="")
+            self.printLine(line, "")
+            spc=", "
+        print("",end=newLine)
+
+    def printLine(self, line:f.SketchLine, newLine="\n"):
+        print("[",end="")
+        self.printPoint(line.startSketchPoint)
+        print(", ",end="")
+        self.printPoint(line.endSketchPoint)
+        print("("+ str(round(line.length, 2)) + ")", end="")
+        print("]", end=newLine)
+
+    def printPoint(self, pt:f.SketchPoint):
+        print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")

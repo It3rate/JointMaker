@@ -74,62 +74,11 @@ class TurtleSketch:
         dim = self.dimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
         dim.parameter.expression = expr
 
-    def createRect(self, baseLine:f.SketchLine, widthExpr, sideOffsetExpr = None):
-        opp:f.SketchLine = self.addParallelLine(self.sketch, baseLine)
 
-        self.constraints.addEqual(baseLine, opp)
-        dim = self.dimensions.addDistanceDimension(baseLine.startSketchPoint, opp.startSketchPoint, \
-            f.DimensionOrientations.AlignedDimensionOrientation, baseLine.startSketchPoint.geometry)
-        dim.parameter.expression = widthExpr
-
-        side0 = self.sketchLines.addByTwoPoints(baseLine.startSketchPoint, opp.startSketchPoint)
-        self.constraints.addPerpendicular(baseLine, side0)
-
-        side1 = self.sketchLines.addByTwoPoints(baseLine.endSketchPoint, opp.endSketchPoint)
-        self.constraints.addPerpendicular(baseLine, side1)
-        self.constraints.addPerpendicular(opp, side1)
-        return [baseLine, side0, opp, side1]
-    
     def projectLine(self, line:f.SketchLine):
         pp0 = self.sketch.project(line.startSketchPoint)
         pp1 = self.sketch.project(line.endSketchPoint)
         return self.sketchLines.addByTwoPoints(pp0[0], pp1[0])
-
-    def combineProfiles(self):
-        result = core.ObjectCollection.create()
-        for p in self.profiles:
-            result.add(p)
-        return result
-        
-    def findLargestProfile(self):
-        index = 0
-        largestArea = 0
-        for i in range(self.profiles.count):
-            areaProps = self.profiles.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
-            if areaProps.area > largestArea:
-                largestArea = areaProps.area
-                index = i
-        return self.profiles.item(index)
-
-    def findSmallestProfile(self):
-        index = 0
-        smallestArea = float('inf')
-        for i in range(self.profiles.count):
-            areaProps = self.profiles.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
-            if areaProps.area < smallestArea:
-                smallestArea = areaProps.area
-                index = i
-        return self.profiles.item(index)
-
-    def removeLargestProfile(self):
-        result = self.findLargestProfile()   
-        self.profiles.removeByItem(result)
-        return result
-
-    def removeSmallestProfile(self):
-        result = self.findLargestProfile()   
-        self.profiles.removeByItem(result)
-        return result
 
     def addMidpointConstructionLine(self, baseLine:f.SketchLine, lengthExpr=None, toLeft=True):
         constraints = self.sketch.geometricConstraints
@@ -155,25 +104,46 @@ class TurtleSketch:
         pp0 = core.Point3D.create(p0.x + rpx, p0.y + rpy, 0)
         pp1 = core.Point3D.create(p1.x + rpx, p1.y + rpy, 0)
         line2 = self.sketchLines.addByTwoPoints(pp0, pp1)
-        #self.sketch.geometricself.constraints.addParallel(line, line2)
         return line2
+
+
+    def combineProfiles(self):
+        result = core.ObjectCollection.create()
+        for p in self.profiles:
+            result.add(p)
+        return result
+        
+    def findLargestProfile(self, profiles:core.ObjectCollection = None):
+        collection = self.profiles if profiles == None else profiles
+        index = 0
+        largestArea = 0
+        for i in range(collection.count):
+            areaProps = collection.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
+            if areaProps.area > largestArea:
+                largestArea = areaProps.area
+                index = i
+        return collection.item(index)
+
+    def findSmallestProfile(self, profiles:core.ObjectCollection = None):
+        collection = self.profiles if profiles == None else profiles
+        index = 0
+        smallestArea = float('inf')
+        for i in range(collection.count):
+            areaProps = collection.item(i).areaProperties(f.CalculationAccuracy.MediumCalculationAccuracy)
+            if areaProps.area < smallestArea:
+                smallestArea = areaProps.area
+                index = i
+        return collection.item(index)
+
+    def removeLargestProfile(self, profiles:core.ObjectCollection = None):
+        collection = self.profiles if profiles == None else profiles
+        result = self.findLargestProfile(collection)   
+        collection.removeByItem(result)
+        return result
+
+    def removeSmallestProfile(self, profiles:core.ObjectCollection = None):
+        collection = self.profiles if profiles == None else profiles
+        result = self.findSmallestProfile(collection)   
+        collection.removeByItem(result)
+        return result
     
-    def getEndPoint(self, start:core.Point3D, angle:float, distance:float):
-        x = start.x + distance * math.cos(angle)
-        y = start.y + distance * math.sin(angle) 
-        return core.Point3D.create(x, y, 0)
-
-    def isOnLine(self, a:core.Point3D, line:f.SketchLine):
-        b = line.startSketchPoint.geometry
-        c = line.endSketchPoint.geometry
-        cross = (c.y - a.y) * (b.x - a.x) - (c.x - a.x) * (b.y - a.y)
-        return abs(cross) < 0.0001
-
-    def distanceToLine(self, a:core.Point3D, line:f.SketchLine):
-        b = line.startSketchPoint.geometry
-        c = line.endSketchPoint.geometry
-        x_diff = c.x - b.x
-        y_diff = c.y - b.y
-        num = abs(y_diff * a.x - x_diff * a.y + c.x*b.y - c.y*b.x)
-        den = math.sqrt(y_diff**2 + x_diff**2)
-        return num / den
