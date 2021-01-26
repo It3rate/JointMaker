@@ -131,7 +131,7 @@ class JointMaker:
         construction = tsketch.addMidpointConstructionLine(baseLine, pOUTER, True)
 
         tsketch.draw(construction, "M75LF50 RF50 RF50 RF50")
-        constraintList = [
+        tsketch.constrain( [
             "ME", [0,0,3,1],
             "PE", [0, construction],
             "PA", [0,2, 1,3],
@@ -139,8 +139,7 @@ class JointMaker:
             "MI", [construction, 1, 0],
             "LL", [0, pZIP_WIDTH, 
                     1, pMID]
-        ] 
-        tsketch.constrain(constraintList)
+        ])
 
     def createWallInsideCuts(self, tsketch:TurtleSketch):
         for idx, line in enumerate(self.shelfLines):
@@ -149,19 +148,14 @@ class JointMaker:
             construction = tsketch.addMidpointConstructionLine(baseLine, None, True)
 
             lines = tsketch.drawClosed(construction, "RM20L180 F40 RF2 RF40 RF20")
-            constraintList = [
+            tsketch.constrain( [
                 "PA", [0,2, 1,3],
                 "PE", [0, 1],
                 "CO", [0, baseLine],
                 "LL", [1, pFULL],
-                "SY", [1, 3, construction]
-            ] 
-            tsketch.constrain(constraintList)
-
-            constraints = tsketch.sketch.geometricConstraints
-            dim = tsketch.sketch.sketchDimensions.addDistanceDimension(baseLine.startSketchPoint, lines[0].startSketchPoint, \
-            f.DimensionOrientations.AlignedDimensionOrientation, lines[0].startSketchPoint.geometry)
-            dim.parameter.expression = pLIP
+                "SY", [1, 3, construction],
+                "PD", [baseLine, 0, 0, 0, pLIP]
+            ])
 
         fullProfile = tsketch.combineProfiles()
         fullProfile.removeByIndex(0)
@@ -170,12 +164,11 @@ class JointMaker:
     def createHalfShelf(self, line:f.SketchLine, index):
         self.comp = self.createComponent("shelf"+ str(index))
         plane = self.createOrthoganalPlane(line)
-
         tsketch:TurtleSketch = self.createSketch(plane)
-
         prj = tsketch.sketch.project(line)
         baseLine = prj[0]
         construction = tsketch.addMidpointConstructionLine(baseLine)
+        
         lines = tsketch.draw(construction, 
             "M10 LM1",
             "#0 F47",
@@ -194,7 +187,7 @@ class JointMaker:
             "#13 LF300",
             "#14 LF2")
 
-        constraintList = [
+        tsketch.constrain( [
             "ME", [0,0,13,1, 9,0,14,1],
             "PA", [baseLine, 0],
             "EQ", [baseLine, 4],
@@ -211,10 +204,9 @@ class JointMaker:
                     14, pZIP_WIDTH,
                     12, pZIP_WIDTH + " * 2",
                     2, pLIP]
-        ] 
-        tsketch.constrain(constraintList)
+        ] )
 
-        cutProfile = tsketch.sketch.profiles.item(0)
+        cutProfile = tsketch.getProfileAt(0)
         fullProfile = tsketch.combineProfiles()
         shelfExtrusions = self.extrudeThreeLayers([fullProfile,cutProfile,fullProfile])
         return self.comp

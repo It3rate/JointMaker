@@ -49,7 +49,10 @@ class TurtlePath:
         return lines
 
 
-# ME VH PA PE EQ CO SY LL
+    # VH PA PE EQ CO SY LL ME MI PD
+    # Contraints lines are indexes or actual lines.
+    # Constraint points are actual Points,  or a Line and [0|1] indicating start or end points of the line.
+    # Expressions are strings.
     def setConstraints(self, constraintList):
         # consts = [
         #     "ME", [0,0,13,1, 9,0,14,1],
@@ -65,85 +68,104 @@ class TurtlePath:
             cmd:str = pair[0].upper()
             data = pair[1]
 
-            if cmd.startswith('ME'): # MERGE
-                for valsIndex in range(0, len(data), 4):
-                    pts = self.grabPoints(data, valsIndex, 4)
-                    self.mergePoints(pts[0], pts[1])
-
-            elif cmd.startswith('VH'): # VERTICAL HORIZONTAL
-                for valsIndex in range(0, len(data), 1):
-                    lines = self.grabLines(data, valsIndex, 1)
+            if cmd.startswith('VH'): # VERTICAL HORIZONTAL
+                for dataIndex in range(0, len(data), 1):
+                    lines = self.grabLines(data, dataIndex, 1)
                     self.makeVertHorz(lines[0], lines[1])
 
             elif cmd.startswith('PA'): # PARALLEL
-                for valsIndex in range(0, len(data), 2):
-                    lines = self.grabLines(data, valsIndex, 2)
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 2)
                     self.makeParallel(lines[0], lines[1])
 
             elif cmd.startswith('PE'): # PERPENDICULAR
-                for valsIndex in range(0, len(data), 2):
-                    lines = self.grabLines(data, valsIndex, 2)
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 2)
                     self.makePerpendicular(lines[0], lines[1])
                     
             elif cmd.startswith('EQ'): # EQUAL
-                for valsIndex in range(0, len(data), 2):
-                    lines = self.grabLines(data, valsIndex, 2)
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 2)
                     self.makeEqual(lines[0], lines[1])
 
             elif cmd.startswith('CO'): # COLLINEAR
-                for valsIndex in range(0, len(data), 2):
-                    lines = self.grabLines(data, valsIndex, 2)
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 2)
                     self.makeCollinear(lines[0], lines[1])
 
-            elif cmd.startswith('MI'): # MIDPOINT
-                for valsIndex in range(0, len(data), 3):
-                    pts = self.grabPoints(data, valsIndex, 2)
-                    lines = self.grabLines(data, valsIndex + 2, 1)
-                    self.makeMidpoint(pts[0], lines[0])
-                    
             elif cmd.startswith('SY'): # SYMETRIC
-                for valsIndex in range(0, len(data), 3):
-                    lines = self.grabLines(data, valsIndex, 3)
+                for dataIndex in range(0, len(data), 3):
+                    lines = self.grabLines(data, dataIndex, 3)
                     self.makeSymetric(lines[0], lines[1], lines[2])
 
             elif cmd.startswith('LL'): # LINE LENGTH
-                for valsIndex in range(0, len(data), 2):
-                    lines = self.grabLines(data, valsIndex, 1)
-                    expr = data[valsIndex + 1]
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 1)
+                    expr = data[dataIndex + 1]
                     self.setLineLength(lines[0], expr)
                     
             elif cmd.startswith('LD'): # LINES DISTANCE
-                for valsIndex in range(0, len(data), 3):
-                    lines = self.grabLines(data, valsIndex, 2)
-                    expr = data[valsIndex + 2]
+                for dataIndex in range(0, len(data), 3):
+                    lines = self.grabLines(data, dataIndex, 2)
+                    expr = data[dataIndex + 2]
                     self.setTwoLinesDist(lines[0], lines[1], expr)
 
+            elif cmd.startswith('ME'): # MERGE
+                dataIndex = 0
+                while dataIndex < len(data):
+                    pts, dataIndex = self.grabPoints(data, dataIndex, 2)
+                    self.mergePoints(pts[0], pts[1])
+
+            elif cmd.startswith('MI'): # MIDPOINT
+                dataIndex = 0
+                while dataIndex < len(data):
+                    pts, dataIndex = self.grabPoints(data, dataIndex, 1)
+                    lines = self.grabLines(data, dataIndex, 1)
+                    dataIndex += 1
+                    self.makeMidpoint(pts[0], lines[0])
+                    
             elif cmd.startswith('PD'): # POINTS DISTANCE
-                for valsIndex in range(0, len(data), 3):
-                    p0 = data[valsIndex + 0]
-                    p1 = data[valsIndex + 1]
-                    expr = data[valsIndex + 2]
-                    self.setTwoPointsDist(p0, p1, expr)
+                dataIndex = 0
+                while dataIndex < len(data):
+                    pts, dataIndex = self.grabPoints(data, dataIndex, 2)
+                    expr = data[dataIndex]
+                    dataIndex += 1
+                    self.setTwoPointsDist(pts[0], pts[1], expr)
+                    
 
 
+    def grabPoints(self, data, start:int, pointCount:int):
+        result = []
+        index = start
+        for i in range(pointCount):
+            if isinstance(type(data[index]), f.SketchPoint):
+                result.append(data[index])
+                index += 1
+            else:
+                val = data[index]
+                line = self.curLines[val] if (type(val) == int)  else val # else is a line
+                p0:SketchPoint = line.startSketchPoint if data[index + 1] == 0 else line.endSketchPoint
+                result.append(p0)
+                index += 2
+        return result, index
 
-    def grabLines(self, indexes, start:int, count:int):
+
+    def grabLines(self, data, start:int, count:int):
         result = []
         for i in range(0, count):
-            val = indexes[start + i]
+            val = data[start + i]
             line = self.curLines[val] if (type(val) == int) else val # is index or actual line
             result.append(line)
         return result
 
-    def grabPoints(self, indexes, start:int, count:int):
-        result = []
-        for i in range(0, count, 2):
-            val = indexes[start + i]
-            line = self.curLines[val] if (type(val) == int)  else val
-            p0:SketchPoint = line.startSketchPoint if indexes[start + i + 1] == 0 else line.endSketchPoint
-            result.append(p0)
-        return result
-
+    # def grabPoints(self, data, start:int, count:int):
+    #     result = []
+    #     for i in range(0, count, 2):
+    #         val = data[start + i]
+    #         line = self.curLines[val] if (type(val) == int)  else val
+    #         p0:SketchPoint = line.startSketchPoint if data[start + i + 1] == 0 else line.endSketchPoint
+    #         result.append(p0)
+    #     return result
 
 
     def mergePoints(self, p0:f.SketchPoint, p1:f.SketchPoint):
@@ -183,7 +205,6 @@ class TurtlePath:
     def setTwoLinesDist(self, line0:f.SketchLine, line1:f.SketchLine, expr):
         dim = self.dimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
         dim.parameter.expression = expr
-
 
     def setTwoPointsDist(self, p0:f.SketchPoint, p1:f.SketchPoint, expr):
         dim = self.dimensions.addDistanceDimension(p0, p1, \

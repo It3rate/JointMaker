@@ -65,7 +65,7 @@ class TurtleSketch:
             f.DimensionOrientations.AlignedDimensionOrientation, line.startSketchPoint.geometry)
         dim.parameter.expression = expr
 
-    def addPointsDist(self, p0:f.SketchPoint, p1:f.SketchPoint, expr):
+    def addTwoPointsDist(self, p0:f.SketchPoint, p1:f.SketchPoint, expr):
         dim = self.dimensions.addDistanceDimension(p0, p1, \
             f.DimensionOrientations.AlignedDimensionOrientation, p0.geometry)
         dim.parameter.expression = expr
@@ -73,6 +73,7 @@ class TurtleSketch:
     def addTwoLinesDist(self, line0:f.SketchLine, line1:f.SketchLine, expr):
         dim = self.dimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
         dim.parameter.expression = expr
+
 
 
     def projectLine(self, line:f.SketchLine):
@@ -106,6 +107,9 @@ class TurtleSketch:
         line2 = self.sketchLines.addByTwoPoints(pp0, pp1)
         return line2
 
+
+    def getProfileAt(self, index:int):
+        return self.sketch.profiles.item(index)
 
     def combineProfiles(self):
         result = core.ObjectCollection.create()
