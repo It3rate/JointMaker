@@ -1,6 +1,8 @@
 
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
+from .TurtlePath import TurtlePath
+
 f = adsk.fusion
 core = adsk.core
 
@@ -12,10 +14,22 @@ class TurtleSketch:
         self.dimensions:f.SketchDimensions = sketchTarget.sketchDimensions
         self.sketchLines:f.SketchLines = sketchTarget.sketchCurves.sketchLines
         self.profiles:f.Profiles = sketchTarget.profiles
+        self.path:TurtlePath = TurtlePath(self.sketch)
+
+
+
+    def draw(self, line:f.SketchLine, *data:str, isClosed=False):
+        data = " ".join(data)
+        return self.path.draw(line, data, isClosed)
+
+    def constrain(self, constraintList):
+        self.path.setConstraints(constraintList)
+
+
 
     def setDistances(self, lines, indexValues):
         for pair in indexValues:
-             self.addLineLength(sketch, lines[pair[0]], pair[1])
+             self.addLineLength(self.sketch, lines[pair[0]], pair[1])
 
     def makeVertHorz(self, lines, indexes):
         for index in indexes:
@@ -56,17 +70,8 @@ class TurtleSketch:
         dim = self.dimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
         dim.parameter.expression = expr
 
-    def addMidpointConstructionLine(self, baseLine:f.SketchLine, lengthExpr, toLeft=True):
-        path = "XM1L90F1X" if toLeft else "XM1R90F1X"
-        lines = Turtle.draw(sketch, baseLine, path)
-        construction = lines[0]
-        self.constraints.addMidPoint(construction.startSketchPoint, baseLine)
-        #self.constraints.addPerpendicular(construction, baseLine)
-        self.addLineLength(sketch, construction, lengthExpr)
-        return lines[0]
-        
     def createRect(self, baseLine:f.SketchLine, widthExpr, sideOffsetExpr = None):
-        opp:f.SketchLine = self.addParallelLine(sketch, baseLine)
+        opp:f.SketchLine = self.addParallelLine(self.sketch, baseLine)
 
         self.constraints.addEqual(baseLine, opp)
         dim = self.dimensions.addDistanceDimension(baseLine.startSketchPoint, opp.startSketchPoint, \
@@ -86,20 +91,6 @@ class TurtleSketch:
         pp1 = self.sketch.project(line.endSketchPoint)
         return self.sketchLines.addByTwoPoints(pp0[0], pp1[0])
 
-    def duplicateLine(self, line:f.SketchLine):
-        return self.sketchLines.addByTwoPoints(line.startSketchPoint, line.endSketchPoint)
-
-    def addParallelLine(self, line:f.SketchLine, direction=1):
-        p0 = line.startSketchPoint.geometry
-        p1 = line.endSketchPoint.geometry
-        rpx = (p1.y - p0.y) * direction # rotate to get perpendicular point to ensure direction
-        rpy = (p1.x - p0.x) * -direction
-        pp0 = core.Point3D.create(p0.x + rpx, p0.y + rpy, 0)
-        pp1 = core.Point3D.create(p1.x + rpx, p1.y + rpy, 0)
-        line2 = self.sketchLines.addByTwoPoints(pp0, pp1)
-        #self.sketch.geometricself.constraints.addParallel(line, line2)
-        return line2
-    
     def combineProfiles(self):
         result = core.ObjectCollection.create()
         for p in self.profiles:
@@ -136,64 +127,45 @@ class TurtleSketch:
         self.profiles.removeByItem(result)
         return result
 
-    # draws a polyline using directions and distances. Distances are percent of line lenght, start direction is p0->p1 of line.
-    def draw(line:f.SketchLine, path:str, isClosed=False):
-        cmds = re.findall("[#FLRMX][0-9\-\.]*", path) #lazy number :)
-        startPt = line.startSketchPoint.geometry
-        endPt = line.endSketchPoint.geometry
-        difX = endPt.x - startPt.x
-        difY = endPt.y - startPt.y
-        length = math.sqrt(difX * difX + difY * difY)
-        angle = math.atan2(difY,difX)
-        curPt:f.SketchPoint = line.startSketchPoint
-        lastLine:f.SketchLine = line
-        lines = []
+    def addMidpointConstructionLine(self, baseLine:f.SketchLine, lengthExpr=None, toLeft=True):
+        constraints = self.sketch.geometricConstraints
+        path = "XM50LF50X" if toLeft else "XM50RF50X"
+        lines = self.path.draw(baseLine, path)
+        construction = lines[0]
+        constraints.addPerpendicular(construction, baseLine)
+        constraints.addMidPoint(construction.startSketchPoint, baseLine)
+        if lengthExpr:
+            self.addLineLength(construction, lengthExpr)
+        else:
+            constraints.addEqual(construction, baseLine)
+        return lines[0]
 
-        cmd:str
-        num:float
-        for cmd in cmds:
-            if len(cmd) > 1:
-                num = float(cmd[1:])
-            if cmd.startswith('F'):
-                p2 = Turtle.getEndPoint(curPt.geometry, angle, (num / 100.0) * length)
-                lastLine = self.sketchLines.addByTwoPoints(curPt, p2)
-                lines.append(lastLine)
-                curPt = lastLine.endSketchPoint
-                pass
-            elif cmd.startswith('L'):
-                angle -= num/180.0 * math.pi
-            elif cmd.startswith('R'):
-                angle += num/180.0 * math.pi
-            elif cmd.startswith('M'):
-                curPt = self.sketch.sketchPoints.add(Turtle.getEndPoint(curPt.geometry, angle, (num / 100.0) * length))
-            elif cmd.startswith('X'):
-                lastLine.isConstruction = True
-            elif cmd.startswith('#'):
-                pass # comment number
-        
-        if isClosed:
-            lines[0].startSketchPoint.merge(lines[len(lines) - 1].endSketchPoint)
-        # if start or end is on line, add constraint
-        # *** or maybe this is just confusing...
-        # if Turtle.isOnLine(lines[0].startSketchPoint.geometry, line):
-        #     sketch.geometricConstraints.addCoincident(lines[0].startSketchPoint, line)
-        # if Turtle.isOnLine(lastLine.endSketchPoint.geometry, line):
-        #     sketch.geometricConstraints.addCoincident(lastLine.endSketchPoint, line)
-            
-        return lines
+    def duplicateLine(self, line:f.SketchLine):
+        return self.sketchLines.addByTwoPoints(line.startSketchPoint, line.endSketchPoint)
 
-    def getEndPoint(start:core.Point3D, angle:float, distance:float):
+    def addParallelLine(self, line:f.SketchLine, direction=1):
+        p0 = line.startSketchPoint.geometry
+        p1 = line.endSketchPoint.geometry
+        rpx = (p1.y - p0.y) * direction # rotate to get perpendicular point to ensure direction
+        rpy = (p1.x - p0.x) * -direction
+        pp0 = core.Point3D.create(p0.x + rpx, p0.y + rpy, 0)
+        pp1 = core.Point3D.create(p1.x + rpx, p1.y + rpy, 0)
+        line2 = self.sketchLines.addByTwoPoints(pp0, pp1)
+        #self.sketch.geometricself.constraints.addParallel(line, line2)
+        return line2
+    
+    def getEndPoint(self, start:core.Point3D, angle:float, distance:float):
         x = start.x + distance * math.cos(angle)
         y = start.y + distance * math.sin(angle) 
         return core.Point3D.create(x, y, 0)
 
-    def isOnLine(a:core.Point3D, line:f.SketchLine):
+    def isOnLine(self, a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         cross = (c.y - a.y) * (b.x - a.x) - (c.x - a.x) * (b.y - a.y)
         return abs(cross) < 0.0001
 
-    def distanceToLine(a:core.Point3D, line:f.SketchLine):
+    def distanceToLine(self, a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         x_diff = c.x - b.x

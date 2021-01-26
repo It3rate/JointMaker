@@ -3,15 +3,11 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
-from . import TurtleSketch
+from .Utils import Utils
+from .TurtleSketch import TurtleSketch
 
-f = adsk.fusion
-core = adsk.core
+f,core,app,ui,design,root = Utils.initGlobals()
 
-app = adsk.core.Application.get()
-ui  = app.userInterface
-design = f.Design.cast(app.activeProduct)
-root = f.Component.cast(design.rootComponent)
 
 pMID = "mid"
 pOUTER = "outer"
@@ -26,6 +22,8 @@ commandId = 'CreateShelvesId'
 commandName = 'Create Shelves Command'
 commandDescription = 'Creates three layer shelves and side walls based on a sketch.'
 handlers = []
+        
+f,core,app,ui,design,root = Utils.initGlobals()
 
 class CreateShelvesExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -61,9 +59,16 @@ def run(context):
     except:
         ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
+
 class JointMaker:
     def __init__(self):
+        self.baseSketch:f.Sketch = self.ensureSelectionIsType(f.Sketch)
+        if not self.baseSketch:
+            return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
+
+        self.turtle = TurtleSketch(self.baseSketch)
+
         self.comp = f.Component.cast(design.activeComponent)
         self.wallComp = self.comp
         self.actSel = ui.activeSelections
@@ -77,9 +82,6 @@ class JointMaker:
 
         self.componentCounter = 0
 
-        self.baseSketch:f.Sketch = self.ensureSelectionIsType(f.Sketch)
-        if not self.baseSketch:
-            return
 
         self.shelfLines = self.getSingleLines(self.baseSketch)
         fullProfile = self.combineProfiles(self.baseSketch)
@@ -124,13 +126,14 @@ class JointMaker:
         constraints = sketch.geometricConstraints
         baseLine:f.SketchLine = self.projectLine(sketch, shelfLine)
         
-        construction = self.addMidpointConstructionLine(sketch, baseLine, pOUTER, False)
+        construction = self.addMidpointConstructionLine(sketch, baseLine, pOUTER, True) # hmm...
         # draw square
-        lines = Turtle.draw(sketch, construction, "M75L90F5 R90F5 R90F5 R90F5")
+        lines = Turtle.draw(sketch, construction, "M75LF50 RF50 RF50 RF50")
         lines[0].startSketchPoint.merge(lines[3].endSketchPoint)
+        constraints.addPerpendicular(lines[0], construction)
+        
         self.makeParallel(constraints, lines, [[0,2],[1,3]])
         self.makePerpendicular(constraints, lines, [[0,1]])
-        #self.makeVertHorz(constraints, lines, [0])
         constraints.addMidPoint(construction.endSketchPoint, lines[0])
         self.addLineLength(sketch, lines[0], pZIP_WIDTH)
         self.addLineLength(sketch, lines[1], pMID)
@@ -141,9 +144,9 @@ class JointMaker:
         for idx, line in enumerate(self.shelfLines):
             baseLine:f.SketchLine = self.projectLine(sketch, line)
             baseLine.isConstruction = True
-            construction = self.addMidpointConstructionLine(sketch, baseLine, pFULL, True)
+            construction = self.addMidpointConstructionLine(sketch, baseLine, None, True)
 
-            lines = Turtle.draw(sketch, construction, "R90M1L180 F2 R90F2 R90F2 R90F2", True)
+            lines = Turtle.draw(sketch, construction, "RM20L180 F40 RF2 RF40 RF20", True)
             self.makeParallel(constraints, lines, [[0,2],[1,3]])
             self.makePerpendicular(constraints, lines, [[0,1]])
 
@@ -183,31 +186,50 @@ class JointMaker:
     def createHalfShelf(self, line:f.SketchLine, index):
         self.comp = self.createComponent("shelf"+ str(index))
         plane = self.createOrthoganalPlane(line)
+
         sketch:f.Sketch = self.createSketch(plane)
-        constraints = sketch.geometricConstraints
+        ts = TurtleSketch(sketch)
+
         prj = sketch.project(line)
         baseLine = prj[0]
-        
-        construction = self.addMidpointConstructionLine(sketch, baseLine, pOUTER)
+        construction = ts.addMidpointConstructionLine(baseLine)
+        lines = ts.draw(construction, 
+            "M10 LM1",
+            "#0 F47",
+            "#1 RF200",
+            "#2 LF2",
+            "#3 RF400",
+            "#4 RF100",
+            "#5 RF400",
+            "#6 RF2",
+            "#7 LF200",
+            "#8 RF47",
+            "#9 RF200",
+            "#10 RF2",
+            "#11 LF100",
+            "#12 LF4",
+            "#13 LF300",
+            "#14 LF2")
 
-        lines = Turtle.draw(sketch, construction, "M10 L90M0.5 #0 F5 #1 R90F2 #2 L90F5 #3 R90F10 #4 R90F22 #5 R90F10 \
-                                                   #6 R90F5 #7 L90F2 #8 R90F5 #9 R90F3 #10 R90F1 #11 L90F3 #12 L90F3 #13 L90F6 #14 L90F2")
-        lines[0].startSketchPoint.merge(lines[13].endSketchPoint)
-        lines[9].startSketchPoint.merge(lines[14].endSketchPoint)
+        constraintList = [
+            "ME", [0,0,13,1, 9,0,14,1],
+            "PA", [baseLine, 0],
+            "EQ", [baseLine, 4],
+            "CO", [0,8, 2,6],
+            "PA", [0,4, 1,7, 3,5, 9,13, 11,13, 12,10],
+            "SY", [9,13,construction, 1,7,construction, 3,5,construction],
+            "PE", [2,3, 9,10],
 
-        constraints.addParallel(baseLine, lines[0])
-        self.addTwoLinesDist(sketch, lines[0], baseLine, "outer")
-
-        self.makeCollinear(constraints, lines, [[0,8], [2,6]])
-        self.makeParallel(constraints, lines, [[0,4], [1,7], [3,5], [9,13], [11,13], [12,10]])
-        self.makePerpendicular(constraints, lines, [[1,2], [3,4], [12,13]])
-
-        constraints.addSymmetry(lines[1], lines[7], construction)
-        constraints.addEqual(baseLine, lines[4])
-        constraints.addSymmetry(lines[3], lines[5], construction)
-        constraints.addSymmetry(lines[9], lines[13], construction)
-        # largest to smallest changes tend to be best here (or distances could go negative unintentionally)
-        self.setDistances(sketch, lines, [[3, pSHELF_WIDTH + " - " + pFULL], [12, pZIP_WIDTH + " * 2"], [14, pZIP_WIDTH], [1, pOUTER + " + " + pMID], [2, pLIP], [13, pZIP_LENGTH], [11, pZIP_LENGTH + " / 2"]])
+            "LD", [0,baseLine,pOUTER],
+            "LL", [11, pZIP_LENGTH + " - " + pLIP, 
+                    13, pZIP_LENGTH, 
+                    1, pOUTER + " + " + pMID, 
+                    3, pSHELF_WIDTH + " - " + pFULL, 
+                    14, pZIP_WIDTH,
+                    12, pZIP_WIDTH + " * 2",
+                    2, pLIP]
+        ] 
+        ts.constrain(constraintList)
 
         cutProfile = sketch.profiles.item(0)
         fullProfile = self.combineProfiles(sketch)
@@ -399,14 +421,18 @@ class JointMaker:
         dim = sketch.sketchDimensions.addOffsetDimension(line0, line1, line1.startSketchPoint.geometry)
         dim.parameter.expression = expr
 
-    def addMidpointConstructionLine(self, sketch:f.Sketch, baseLine:f.SketchLine, lengthExpr, toLeft=True):
+    def addMidpointConstructionLine(self, sketch:f.Sketch, baseLine:f.SketchLine, lengthExpr=None, toLeft=True):
         constraints = sketch.geometricConstraints
-        path = "XM1L90F1X" if toLeft else "XM1R90F1X"
+        path = "XM50LF50X" if toLeft else "XM50RF50X"
         lines = Turtle.draw(sketch, baseLine, path)
         construction = lines[0]
+        constraints.addPerpendicular(construction, baseLine)
         constraints.addMidPoint(construction.startSketchPoint, baseLine)
-        #constraints.addPerpendicular(construction, baseLine)
-        self.addLineLength(sketch, construction, lengthExpr)
+        if lengthExpr:
+            self.addLineLength(sketch, construction, lengthExpr)
+        else:
+            constraints.addEqual(construction, baseLine)
+
         return lines[0]
 
     def combineProfiles(self, sketch:f.SketchLine):
@@ -467,7 +493,7 @@ class JointMaker:
         lines = []
         touched = []
         for gc in sketch.geometricConstraints:
-            if isinstance(gc, f.CoincidentConstraint):
+            if isinstance(gc, f.CoincidentConstraint) and gc.point.connectedEntities:
                 for con in gc.point.connectedEntities:
                     if isinstance(con, f.SketchLine):
                         touched.append(con) 
@@ -475,6 +501,8 @@ class JointMaker:
                     touched.append(gc.entity) # bug: enity reference doesn't seem to be the same object as original
 
         for line in sketch.sketchCurves.sketchLines:
+            if line.isConstruction:
+                continue
             if line.startSketchPoint.connectedEntities.count > 1:
                 continue
             if line.endSketchPoint.connectedEntities.count > 1:
@@ -540,7 +568,7 @@ class Turtle:
         difX = endPt.x - startPt.x
         difY = endPt.y - startPt.y
         length = math.sqrt(difX * difX + difY * difY)
-        angle = math.atan2(difY,difX)
+        angle = math.atan2(difY,difX) + math.pi * 4.0
         curPt:f.SketchPoint = line.startSketchPoint
         lastLine:f.SketchLine = line
         lines = []
@@ -548,14 +576,12 @@ class Turtle:
         cmd:str
         num:float
         for cmd in cmds:
-            if len(cmd) > 1:
-                num = float(cmd[1:])
+            num = float(cmd[1:]) if len(cmd) > 1 else 90
             if cmd.startswith('F'):
                 p2 = Turtle.getEndPoint(curPt.geometry, angle, (num / 100.0) * length)
                 lastLine = sketch.sketchCurves.sketchLines.addByTwoPoints(curPt, p2)
                 lines.append(lastLine)
                 curPt = lastLine.endSketchPoint
-                pass
             elif cmd.startswith('L'):
                 angle -= num/180.0 * math.pi
             elif cmd.startswith('R'):
