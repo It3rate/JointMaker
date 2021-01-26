@@ -1,8 +1,9 @@
 
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
-f = adsk.fusion
-core = adsk.core
+from .Utils import Utils
+
+f,core,app,ui,design,root = Utils.initGlobals()
 
 class TurtlePath:
 
@@ -10,25 +11,35 @@ class TurtlePath:
         self.sketch:f.Sketch = sketch
         self.dimensions = sketch.sketchDimensions
         self.constraints:f.GeometricConstraints = self.sketch.geometricConstraints
+        self.unitsManager:f.UnitsManager = design.unitsManager
         
     def draw(self, constructionLine:f.SketchLine, path:str, isClosed=False, makeCurrent=True):
         self.contructionLine:f.SketchLine = constructionLine
-        cmds = re.findall("[#FLRMX][0-9\-\.]*", path) #lazy number :)
+        cmds = re.findall("[#FLRMXU][0-9\-\.a-z]*", path) #lazy number :)
         startPt = self.contructionLine.startSketchPoint.geometry
         endPt = self.contructionLine.endSketchPoint.geometry
         difX = endPt.x - startPt.x
         difY = endPt.y - startPt.y
-        length = math.sqrt(difX * difX + difY * difY)
+        distance = math.sqrt(difX * difX + difY * difY)
         angle = math.atan2(difY,difX) + math.pi * 4.0
         curPt:f.SketchPoint = self.contructionLine.startSketchPoint
         lastLine:f.SketchLine = self.contructionLine
         lines = []
         cmd:str
         num:float
+        units:str = "rel"
         for cmd in cmds:
-            num = float(cmd[1:]) if len(cmd) > 1 else 90
-            if cmd.startswith('F'):
-                p2 = TurtlePath.getEndPoint(curPt.geometry, angle, (num / 100.0) * length)
+            if cmd.startswith('U'):
+                units = cmd[1:]
+                continue
+            
+            data = cmd[1:]
+            num = float(data) if len(cmd) > 1 else 90
+            if cmd.startswith('D'):
+                distance = num
+            elif cmd.startswith('F'):
+                dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
+                p2 = TurtlePath.getEndPoint(curPt.geometry, angle, dist)
                 lastLine = self.sketch.sketchCurves.sketchLines.addByTwoPoints(curPt, p2)
                 lines.append(lastLine)
                 curPt = lastLine.endSketchPoint
@@ -37,17 +48,31 @@ class TurtlePath:
             elif cmd.startswith('R'):
                 angle += num/180.0 * math.pi
             elif cmd.startswith('M'):
-                curPt = self.sketch.sketchPoints.add(TurtlePath.getEndPoint(curPt.geometry, angle, (num / 100.0) * length))
+                dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
+                curPt = self.sketch.sketchPoints.add(TurtlePath.getEndPoint(curPt.geometry, angle, dist))
             elif cmd.startswith('X'):
                 lastLine.isConstruction = True
             elif cmd.startswith('#'):
                 pass # comment number
+
         if isClosed:
             lines[0].startSketchPoint.merge(lines[len(lines) - 1].endSketchPoint)
         if makeCurrent:
             self.curLines = lines
         return lines
 
+    def parseDistance(self, units:str, data:str, measure:float):
+        if not data.isnumeric():
+            result = data
+        elif units == 'rel':
+            result = (float(data) / 100.0) * measure
+        elif units == 'mm':
+            result = float(data) + 'mm'
+        elif units == 'in':
+            result = float(data) + 'in'
+        else:
+            result = data
+        return result
 
     # VH PA PE EQ CO SY LL ME MI PD
     # Contraints lines are indexes or actual lines.
@@ -237,10 +262,19 @@ class TurtlePath:
         #self.sketch.geometricself.constraints.addParallel(line, line2)
         return line2
     
-
+    # returns double value of expression evaluated to current units
+    @staticmethod
+    def evaluate(expr):
+        result = 0
+        if type(expr) == float or type(expr) == int:
+            result = expr
+        else:
+            result = self.unitsManager.evaluateExpression(expr)
+        return result
         
     @staticmethod
-    def getEndPoint(start:core.Point3D, angle:float, distance:float):
+    def getEndPoint(start:core.Point3D, angle:float, dist):
+        distance = TurtlePath.evaluate(dist)
         x = start.x + distance * math.cos(angle)
         y = start.y + distance * math.sin(angle) 
         return core.Point3D.create(x, y, 0)
