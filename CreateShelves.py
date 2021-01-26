@@ -5,6 +5,7 @@ import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
 from .Utils import Utils
 from .TurtleSketch import TurtleSketch
+from .TurtleParams import TurtleParams
 
 f,core,app,ui,design,root = Utils.initGlobals()
 
@@ -67,21 +68,21 @@ class JointMaker:
             return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
 
-        self.turtle = TurtleSketch(self.baseSketch)
-
+        self.parameters = TurtleParams()
         self.comp = f.Component.cast(design.activeComponent)
         self.wallComp = self.comp
         self.actSel = ui.activeSelections
-        self.addMMParam(pMID, 3)
-        self.addMMParam(pOUTER, 2)
-        self.addMMParam(pFULL, "mid + outer * 2")
-        self.addMMParam(pLIP, 1)
-        self.addMMParam(pSHELF_WIDTH, 40)
-        self.addMMParam(pZIP_WIDTH, 1)
-        self.addMMParam(pZIP_LENGTH, "zipWidth * 10")
+
+        self.parameters.addParams(
+            pMID, 3,
+            pOUTER, 2,
+            pFULL, "mid + outer * 2",
+            pLIP, 1,
+            pSHELF_WIDTH, 40,
+            pZIP_WIDTH, 1,
+            pZIP_LENGTH, "zipWidth * 10")
 
         self.componentCounter = 0
-
 
         self.shelfLines = self.getSingleLines(self.baseSketch)
         fullProfile = self.combineProfiles(self.baseSketch)
@@ -95,7 +96,7 @@ class JointMaker:
 
         root.isConstructionFolderLightBulbOn = True
         planeInput:f.ConstructionPlaneInput = root.constructionPlanes.createInput()
-        dist = self.getValueInputMM(pSHELF_WIDTH)
+        dist = self.parameters.createValue(pSHELF_WIDTH)
         planeInput.setByOffset(self.baseSketch.referencePlane, dist)
         self.midPlane:f.ConstructionPlane = root.constructionPlanes.add(planeInput)
         self.midPlane.name = "MidPlane"
@@ -166,13 +167,6 @@ class JointMaker:
         for idx, line in enumerate(self.shelfLines):
             comp = self.createHalfShelf(line, idx)
             self.mirrorComponent(comp, self.midPlane, True)
-
-    # def mirrorComponent(self, component:f.Component, plane:f.ConstructionPlane):
-    #     mirrorFeatures = component.features.mirrorFeatures
-    #     inputEntites = adsk.core.ObjectCollection.create()
-    #     inputEntites.add(component)
-    #     mirrorInput:f.MirrorFeatureInput = mirrorFeatures.createInput(inputEntites, plane)
-    #     mirrorFeature = mirrorFeatures.add(mirrorInput)
 
     def mirrorComponent(self, component:f.Component, plane:f.ConstructionPlane, isJoined:bool = False):
         mirrorFeatures = component.features.mirrorFeatures
@@ -274,12 +268,12 @@ class JointMaker:
         if profile is None:
             return
         extrudes = self.comp.features.extrudeFeatures
-        dist = self.getValueInputMM(expression)
+        dist = self.parameters.createValue(expression)
         extrudeInput = extrudes.createInput(profile, f.FeatureOperations.NewBodyFeatureOperation) 
         extentDistance = f.DistanceExtentDefinition.create(dist) 
         extrudeInput.setOneSideExtent(extentDistance, f.ExtentDirections.PositiveExtentDirection)
         if start:
-            startFrom = f.FromEntityStartDefinition.create(start, self.getValueInputMM(0))
+            startFrom = f.FromEntityStartDefinition.create(start, self.parameters.createValue(0))
             extrudeInput.startExtent = startFrom
 
         extrude = extrudes.add(extrudeInput) 
@@ -307,7 +301,7 @@ class JointMaker:
         # This works in the context of joints because we have participating bodies, but is weak in a lot of cases
         #ext = f.ToEntityExtentDefinition.create(body, True)
         #cutInput.setAllExtent(f.ExtentDirections.NegativeExtentDirection)
-        cutInput.setSymmetricExtent(self.getValueInputMM("full * 2"), True)
+        cutInput.setSymmetricExtent(self.parameters.createValue("full * 2"), True)
 
         cutInput.participantBodies = [body]
         extrude = extrudes.add(cutInput) 
@@ -328,21 +322,21 @@ class JointMaker:
         extrude = extrudes.add(extrudeInput) 
         return extrude
 
-    def addMMParam(self, name, val, msg=""):
-        result = design.userParameters.itemByName(name)
-        if result is None:
-            result = design.userParameters.add(name, self.getValueInputMM(val), "mm", msg)
-        return result
+    # def addMMParam(self, name, val, msg=""):
+    #     result = design.userParameters.itemByName(name)
+    #     if result is None:
+    #         result = design.userParameters.add(name, self.parameters.createValue(val), "mm", msg)
+    #     return result
 
-    def getValueInputMM(self, val):
-            if isinstance(val, str):
-                return adsk.core.ValueInput.createByString(val)
-            elif isinstance(val, (int, float)):
-                return adsk.core.ValueInput.createByString(str(val) + " mm")
-            elif isinstance(val, bool):
-                return adsk.core.ValueInput.createByBoolean(val)
-            else:
-                return adsk.core.ValueInput.createByObject(val)
+    # def getValueInputMM(self, val):
+    #         if isinstance(val, str):
+    #             return adsk.core.ValueInput.createByString(val)
+    #         elif isinstance(val, (int, float)):
+    #             return adsk.core.ValueInput.createByString(str(val) + " mm")
+    #         elif isinstance(val, bool):
+    #             return adsk.core.ValueInput.createByBoolean(val)
+    #         else:
+    #             return adsk.core.ValueInput.createByObject(val)
     
     def ensureSelectionIsType(self, selType):
         typeName = selType.__name__
