@@ -1,13 +1,13 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
-from .Utils import Utils
+from .TurtleUtils import TurtleUtils
 from .TurtleSketch import TurtleSketch
 from .TurtleParams import TurtleParams
 from .TurtlePath import TurtlePath
-from .MultiLayer import MultiLayer
+from .TurtleLayers import TurtleLayers
 
-f,core,app,ui,design,root = Utils.initGlobals()
+f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 pMID = "mid"
 pOUTER = "outer"
@@ -43,29 +43,28 @@ class JointMaker:
         fullProfile = self.rootTSketch.combineProfiles()
         self.shelfLines = self.rootTSketch.getSingleLines()
 
-        self.getAppearances() # this will deselct everything
         self.createWalls(fullProfile)
         self.createShelves()
     
     def createWalls(self, profile):
         comp = self.rootTSketch.component
-        ml = MultiLayer(comp, profile, [pOUTER, pMID, pOUTER], [self.colOuter,self.colMid,self.colOuter])
+        layers = TurtleLayers(comp, profile, [pOUTER, pMID, pOUTER])
 
         self.midPlane = self.rootTSketch.createOffsetPlane(pSHELF_WIDTH, root, "MidPlane")
 
-        tsketch = TurtleSketch.createWithPlane(comp, ml.startFaceAt(0)) 
+        tsketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(0)) 
         fullProfile = self.createWallOuterCuts(tsketch)
-        ml.cutBodiesWithProfiles(fullProfile, 0)
+        layers.cutBodiesWithProfiles(fullProfile, 0)
 
-        tsketch = TurtleSketch.createWithPlane(comp, ml.startFaceAt(1))
+        tsketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(1))
         fullProfile = self.createWallInsideCuts(tsketch)
-        ml.cutBodiesWithProfiles(fullProfile, 1,2)
-        ml.mirrorLayers(self.midPlane, False)
+        layers.cutBodiesWithProfiles(fullProfile, 1,2)
+        layers.mirrorLayers(self.midPlane, False)
 
     def createShelves(self):
         for idx, line in enumerate(self.shelfLines):
-            ml:MultiLayer = self.createHalfShelf(line, idx)
-            ml.mirrorLayers(self.midPlane, True)
+            layers = self.createHalfShelf(line, idx)
+            layers.mirrorLayers(self.midPlane, True)
     
     def createWallZipCutProfile(self, tsketch:TurtleSketch, shelfLine:f.SketchLine):
         baseLine:f.SketchLine = tsketch.projectLine(shelfLine)
@@ -109,7 +108,7 @@ class JointMaker:
         fullProfile.removeByIndex(0)
         return fullProfile
 
-    def createHalfShelf(self, line:f.SketchLine, index) -> MultiLayer:
+    def createHalfShelf(self, line:f.SketchLine, index) -> TurtleLayers:
         comp = self.createComponent("shelf"+ str(index))
         plane = self.rootTSketch.createOrthoganalPlane(line, comp)
         tsketch = TurtleSketch.createWithPlane(comp, plane)
@@ -157,8 +156,8 @@ class JointMaker:
         cutProfile = tsketch.getProfileAt(0)
         fullProfile = tsketch.combineProfiles()
         
-        shelfExtrusions = MultiLayer(comp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER], [self.colOuter,self.colMid,self.colOuter])
-        return shelfExtrusions
+        layers = TurtleLayers(comp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER])
+        return layers
     
 
     def createComponent(self, name):
@@ -183,11 +182,4 @@ class JointMaker:
             return
         return selected
 
-    def getAppearances(self):
-        matLib = app.materialLibraries.item(2).appearances
-        self.colOuter = matLib.itemByName("Plastic - Translucent Matte (Yellow)")
-        self.colOuter.copyTo(design)
-        self.colMid = matLib.itemByName("Plastic - Translucent Matte (Green)")
-        self.colMid.copyTo(design)
-    
 

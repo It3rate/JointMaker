@@ -1,13 +1,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
-from .Utils import Utils
+from .TurtleUtils import TurtleUtils
 from .JointMaker import JointMaker
-from .TurtleSketch import TurtleSketch
-from .TurtleParams import TurtleParams
-from .TurtlePath import TurtlePath
-from .MultiLayer import MultiLayer
-
-f,core,app,ui,design,root = Utils.initGlobals()
 
 # command
 commandId = 'CreateShelvesId'
@@ -15,7 +9,7 @@ commandName = 'Create Shelves Command'
 commandDescription = 'Creates three layer shelves and side walls based on a sketch.'
 handlers = []
         
-f,core,app,ui,design,root = Utils.initGlobals()
+f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class CreateShelvesExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):

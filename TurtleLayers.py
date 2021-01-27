@@ -1,16 +1,17 @@
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
-from .Utils import Utils
+from .TurtleUtils import TurtleUtils
 from .TurtleParams import TurtleParams
+from .TurtleAppearance import TurtleAppearance
 
-f,core,app,ui,design,root = Utils.initGlobals()
+f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
-class MultiLayer(list):
+class TurtleLayers(list):
     # pass lists, or optionally single elements if specifying layerCount. layerCount should match list sizes if one is passed.
-    def __init__(self, component:f.Component, profiles:list, thicknesses:list, appearances:list = [], layerCount:int = 1):
+    def __init__(self, component:f.Component, profiles:list, thicknesses:list, layerCount:int = 1):
         self.component = component
         self.parameters = TurtleParams.instance()
-        self.appearances = appearances # todo: make appearances based on thickness
+        self.appearances = TurtleAppearance.instance()
 
         isListProfiles = isinstance(profiles, list)
         isListThickness = isinstance(thicknesses, list)
@@ -58,15 +59,13 @@ class MultiLayer(list):
         for i in range(self.layerCount):
             extruded = self.extrude(self.profiles[i], startFace, self.thicknesses[i])
             extrudes.append(extruded)
-            self.colorExtrudedBodies(i, extruded)
             startFace = extruded.endFaces.item(0)
         return extrudes
 
-    def colorExtrudedBodies(self, appearanceIndex:int, extruded:f.ExtrudeFeature):
-        if len(self.appearances) > 0:
-            index = min(len(self.appearances) - 1, appearanceIndex)
-            for body in extruded.bodies:
-                body.appearance = self.appearances[index]
+    def colorExtrudedBodies(self, extruded:f.ExtrudeFeature, thickness):
+        appr = self.appearances.getAppearance(thickness)
+        for body in extruded.bodies:
+            body.appearance = appr
 
     def cutBodiesWithProfiles(self, profiles, *bodyIndexes:int):
         profiles = profiles if isinstance(profiles, list) else [profiles] * len(bodyIndexes)
@@ -93,8 +92,7 @@ class MultiLayer(list):
         extDef = f.DistanceExtentDefinition.cast(extrude.extentOne)
         extDef.distance.expression = expression
 
-        # extrude = extrudes.addSimple(profile, dist, f.FeatureOperations.NewBodyFeatureOperation) 
-        body = extrude.bodies.item(0) 
+        self.colorExtrudedBodies(extrude, expression)
         return extrude
 
     def cutBodyWithProfile(self, profile:f.Profile, body:f.BRepBody):

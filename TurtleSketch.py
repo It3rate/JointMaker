@@ -1,11 +1,11 @@
 
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
-from .Utils import Utils
+from .TurtleUtils import TurtleUtils
 from .TurtlePath import TurtlePath
 from .TurtleParams import TurtleParams
 
-f,core,app,ui,design,root = Utils.initGlobals()
+f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class TurtleSketch:
     def __init__(self, sketchTarget:f.Sketch):

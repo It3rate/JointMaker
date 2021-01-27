@@ -1,9 +1,9 @@
 
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
-from .Utils import Utils
+from .TurtleUtils import TurtleUtils
 
-f,core,app,ui,design,root = Utils.initGlobals()
+f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class TurtleParams:
 
