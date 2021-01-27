@@ -25,9 +25,7 @@ class JointMaker:
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
 
         self.rootTSketch = TurtleSketch(self.baseSketch)
-
-        self.parameters = TurtleParams.instance()
-        self.parameters.addParams(
+        TurtleParams.instance().addParams(
             pMID, 3,
             pOUTER, 2,
             pFULL, "mid + outer * 2",
@@ -36,9 +34,7 @@ class JointMaker:
             pZIP_WIDTH, 1,
             pZIP_LENGTH, "zipWidth * 10")
 
-        self.actSel = ui.activeSelections
-
-        self.componentCounter = 0
+        self.midPlane = self.rootTSketch.createOffsetPlane(pSHELF_WIDTH, root, "MidPlane")
 
         fullProfile = self.rootTSketch.combineProfiles()
         self.shelfLines = self.rootTSketch.getSingleLines()
@@ -50,15 +46,13 @@ class JointMaker:
         comp = self.rootTSketch.component
         layers = TurtleLayers(comp, profile, [pOUTER, pMID, pOUTER])
 
-        self.midPlane = self.rootTSketch.createOffsetPlane(pSHELF_WIDTH, root, "MidPlane")
+        # wall cuts
+        outersketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(0)) 
+        outerProfile = self.createWallOuterCuts(outersketch)
+        innersketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(1))
+        innerProfile = self.createWallInsideCuts(innersketch)
+        layers.cutWithProfiles([outerProfile, innerProfile, innerProfile])
 
-        tsketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(0)) 
-        fullProfile = self.createWallOuterCuts(tsketch)
-        layers.cutBodiesWithProfiles(fullProfile, 0)
-
-        tsketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(1))
-        fullProfile = self.createWallInsideCuts(tsketch)
-        layers.cutBodiesWithProfiles(fullProfile, 1,2)
         layers.mirrorLayers(self.midPlane, False)
 
     def createShelves(self):

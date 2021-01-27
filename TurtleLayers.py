@@ -67,6 +67,15 @@ class TurtleLayers(list):
         for body in extruded.bodies:
             body.appearance = appr
 
+
+    def cutWithProfiles(self, profiles):
+        profiles = profiles if isinstance(profiles, list) else [profiles] * len(self.layerCount)
+        for i in range(len(profiles)):
+            bodies = self.getBodiesFrom(i)
+            pindex = min(i, len(profiles) - 1)
+            for body in bodies:
+                self.cutBodyWithProfile(profiles[pindex], body)
+
     def cutBodiesWithProfiles(self, profiles, *bodyIndexes:int):
         profiles = profiles if isinstance(profiles, list) else [profiles] * len(bodyIndexes)
         for i in range(len(bodyIndexes)):
