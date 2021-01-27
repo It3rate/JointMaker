@@ -4,8 +4,8 @@ class Utils:
     def __init__(self):
         super().__init__()
         
-    @staticmethod
-    def initGlobals():
+    @classmethod
+    def initGlobals(cls):
         global f
         global core
         global app

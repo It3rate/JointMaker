@@ -6,6 +6,8 @@ import os, math, re
 from .Utils import Utils
 from .TurtleSketch import TurtleSketch
 from .TurtleParams import TurtleParams
+from .TurtlePath import TurtlePath
+from .MultiLayer import MultiLayer
 
 f,core,app,ui,design,root = Utils.initGlobals()
 
@@ -67,7 +69,7 @@ class JointMaker:
             return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
 
-        self.parameters = TurtleParams()
+        self.parameters = TurtleParams.instance()
         self.parameters.addParams(
             pMID, 3,
             pOUTER, 2,
@@ -92,7 +94,7 @@ class JointMaker:
         self.createShelves()
     
     def createWalls(self, profile):
-        extrudes = self.extrudeThreeLayers(profile)
+        ml = MultiLayer(self.comp, profile, [pOUTER, pMID, pOUTER], [self.colOuter,self.colMid,self.colOuter])
 
         root.isConstructionFolderLightBulbOn = True
         planeInput:f.ConstructionPlaneInput = root.constructionPlanes.createInput()
@@ -101,15 +103,13 @@ class JointMaker:
         self.midPlane:f.ConstructionPlane = root.constructionPlanes.add(planeInput)
         self.midPlane.name = "MidPlane"
 
-        wallStartFace = extrudes[0].startFaces.item(0)
-        tsketch:TurtleSketch = self.createSketch(wallStartFace) 
+        tsketch:TurtleSketch = self.createSketch(ml.startFaceAt(0)) 
         fullProfile = self.createWallOuterCuts(tsketch)
-        self.cutBodiesWithProfiles([extrudes[0].bodies.item(0)], [fullProfile])
+        ml.cutBodiesWithProfiles(fullProfile, 0)
 
-        wallNextFace = extrudes[1].startFaces.item(0)
-        tsketch:TurtleSketch = self.createSketch(wallNextFace)
+        tsketch:TurtleSketch = self.createSketch(ml.startFaceAt(1))
         fullProfile = self.createWallInsideCuts(tsketch)
-        self.cutBodiesWithProfiles([ extrudes[1].bodies.item(0), extrudes[2].bodies.item(0)], [fullProfile,fullProfile])
+        ml.cutBodiesWithProfiles(fullProfile, 1,2)
 
         self.mirrorComponent(self.wallComp, self.midPlane, False)
 
@@ -168,7 +168,7 @@ class JointMaker:
         prj = tsketch.sketch.project(line)
         baseLine = prj[0]
         construction = tsketch.addMidpointConstructionLine(baseLine)
-        
+
         lines = tsketch.draw(construction, 
             "M10 LM1",
             "#0 F47",
@@ -208,7 +208,8 @@ class JointMaker:
 
         cutProfile = tsketch.getProfileAt(0)
         fullProfile = tsketch.combineProfiles()
-        shelfExtrusions = self.extrudeThreeLayers([fullProfile,cutProfile,fullProfile])
+        
+        shelfExtrusions = MultiLayer(self.comp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER], [self.colOuter,self.colMid,self.colOuter])
         return self.comp
     
     def getSingleLines(self, sketch:f.Sketch):
@@ -350,6 +351,16 @@ class JointMaker:
         extrude = extrudes.add(extrudeInput) 
         return extrude
 
+    def ensureBodiesAsList(self, fBodies):
+        if isinstance(fBodies, list):
+            return fBodies
+        bodies = []
+        if isinstance(fBodies, f.Component):
+            fBodies = fBodies.bRepBodies
+        for b in fBodies:
+            bodies.append(b)
+        return bodies
+
     def ensureSelectionIsType(self, selType):
         typeName = selType.__name__
         title = "Selection Required"
@@ -366,16 +377,6 @@ class JointMaker:
             ui.messageBox('Selected object needs to be a ' + typeName + ". It is a " + str(type(selected)) + ".", title)
             return
         return selected
-    
-    def ensureBodiesAsList(self, fBodies):
-        if isinstance(fBodies, list):
-            return fBodies
-        bodies = []
-        if isinstance(fBodies, f.Component):
-            fBodies = fBodies.bRepBodies
-        for b in fBodies:
-            bodies.append(b)
-        return bodies
 
     def getAppearances(self):
         matLib = app.materialLibraries.item(2).appearances

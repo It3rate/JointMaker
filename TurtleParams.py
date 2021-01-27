@@ -7,8 +7,17 @@ f,core,app,ui,design,root = Utils.initGlobals()
 
 class TurtleParams:
 
-    def __init__(self, units:str="mm"):
+    __useInstance = 'Use Instance'
+    _turtleParamsInstance = None
+
+    def __init__(self, useInstance, units:str="mm"):
         self.curUnits = units
+
+    @classmethod
+    def instance(cls, units:str="mm"):
+        if(cls._turtleParamsInstance == None):
+            cls._turtleParamsInstance = TurtleParams(cls.__useInstance, units)
+        return cls._turtleParamsInstance
 
     def getValue(self, name):
         param = design.userParameters.itemByName(name)

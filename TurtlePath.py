@@ -13,9 +13,11 @@ class TurtlePath:
         self.constraints:f.GeometricConstraints = self.sketch.geometricConstraints
         self.unitsManager:f.UnitsManager = design.unitsManager
         
+    # Command letters must be uppercase
+    # units is the data portion should be lowercase (in, mm, fl_oz, %). Some fusion units have uppercase, if this becomes an issue just rework the regex.
     def draw(self, constructionLine:f.SketchLine, path:str, isClosed=False, makeCurrent=True):
         self.contructionLine:f.SketchLine = constructionLine
-        cmds = re.findall("[#FLRMXU][0-9\-\.a-z]*", path) #lazy number :)
+        cmds = re.findall("[#FLRMXU][0-9\-\.a-z_%]*", path) #lazy number
         startPt = self.contructionLine.startSketchPoint.geometry
         endPt = self.contructionLine.endSketchPoint.geometry
         difX = endPt.x - startPt.x
@@ -39,7 +41,7 @@ class TurtlePath:
                 distance = num
             elif cmd.startswith('F'):
                 dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
-                p2 = TurtlePath.getEndPoint(curPt.geometry, angle, dist)
+                p2 = self.getEndPoint(curPt.geometry, angle, dist)
                 lastLine = self.sketch.sketchCurves.sketchLines.addByTwoPoints(curPt, p2)
                 lines.append(lastLine)
                 curPt = lastLine.endSketchPoint
@@ -49,7 +51,7 @@ class TurtlePath:
                 angle += num/180.0 * math.pi
             elif cmd.startswith('M'):
                 dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
-                curPt = self.sketch.sketchPoints.add(TurtlePath.getEndPoint(curPt.geometry, angle, dist))
+                curPt = self.sketch.sketchPoints.add(self.getEndPoint(curPt.geometry, angle, dist))
             elif cmd.startswith('X'):
                 lastLine.isConstruction = True
             elif cmd.startswith('#'):
@@ -263,8 +265,8 @@ class TurtlePath:
         return line2
     
     # returns double value of expression evaluated to current units
-    @staticmethod
-    def evaluate(expr):
+    @classmethod
+    def evaluate(cls, expr):
         result = 0
         if type(expr) == float or type(expr) == int:
             result = expr
@@ -272,22 +274,22 @@ class TurtlePath:
             result = self.unitsManager.evaluateExpression(expr)
         return result
         
-    @staticmethod
-    def getEndPoint(start:core.Point3D, angle:float, dist):
-        distance = TurtlePath.evaluate(dist)
+    @classmethod
+    def getEndPoint(cls, start:core.Point3D, angle:float, dist):
+        distance = cls.evaluate(dist)
         x = start.x + distance * math.cos(angle)
         y = start.y + distance * math.sin(angle) 
         return core.Point3D.create(x, y, 0)
 
-    @staticmethod
-    def isOnLine(a:core.Point3D, line:f.SketchLine):
+    @classmethod
+    def isOnLine(cls, a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         cross = (c.y - a.y) * (b.x - a.x) - (c.x - a.x) * (b.y - a.y)
         return abs(cross) < 0.0001
 
-    @staticmethod
-    def distanceToLine(a:core.Point3D, line:f.SketchLine):
+    @classmethod
+    def distanceToLine(cls, a:core.Point3D, line:f.SketchLine):
         b = line.startSketchPoint.geometry
         c = line.endSketchPoint.geometry
         x_diff = c.x - b.x
@@ -296,8 +298,8 @@ class TurtlePath:
         den = math.sqrt(y_diff**2 + x_diff**2)
         return num / den
 
-    @staticmethod
-    def isEquivalentLine(a:f.SketchLine, b:f.SketchLine, maxDist = 0):
+    @classmethod
+    def isEquivalentLine(cls, a:f.SketchLine, b:f.SketchLine, maxDist = 0):
         result = abs(a.geometry.startPoint.x - b.geometry.startPoint.x) <= maxDist and \
             abs(a.geometry.startPoint.y - b.geometry.startPoint.y) <= maxDist and \
             abs(a.geometry.endPoint.x - b.geometry.endPoint.x) <= maxDist and \
@@ -305,6 +307,7 @@ class TurtlePath:
         return result
 
         
+    @classmethod
     def printLines(self, lines, newLine="\n"):
         spc = "Line: "
         for line in lines:
@@ -313,6 +316,7 @@ class TurtlePath:
             spc=", "
         print("",end=newLine)
 
+    @classmethod
     def printLine(self, line:f.SketchLine, newLine="\n"):
         print("[",end="")
         self.printPoint(line.startSketchPoint)
@@ -321,5 +325,6 @@ class TurtlePath:
         print("("+ str(round(line.length, 2)) + ")", end="")
         print("]", end=newLine)
 
+    @classmethod
     def printPoint(self, pt:f.SketchPoint):
         print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")
