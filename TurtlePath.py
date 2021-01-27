@@ -40,7 +40,7 @@ class TurtlePath:
             if cmd.startswith('D'):
                 distance = num
             elif cmd.startswith('F'):
-                dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
+                dist = self.parseDistance(units, data, distance) 
                 p2 = self.getEndPoint(curPt.geometry, angle, dist)
                 lastLine = self.sketch.sketchCurves.sketchLines.addByTwoPoints(curPt, p2)
                 lines.append(lastLine)
@@ -50,7 +50,7 @@ class TurtlePath:
             elif cmd.startswith('R'):
                 angle += num/180.0 * math.pi
             elif cmd.startswith('M'):
-                dist = self.parseDistance(units, data, distance) # (num / 100.0) * distance if units == "rel" else cmd[1:]
+                dist = self.parseDistance(units, data, distance)
                 curPt = self.sketch.sketchPoints.add(self.getEndPoint(curPt.geometry, angle, dist))
             elif cmd.startswith('X'):
                 lastLine.isConstruction = True
@@ -181,18 +181,14 @@ class TurtlePath:
         result = []
         for i in range(0, count):
             val = data[start + i]
-            line = self.curLines[val] if (type(val) == int) else val # is index or actual line
+            line = self.fromLineOrIndex(val)
             result.append(line)
         return result
 
-    # def grabPoints(self, data, start:int, count:int):
-    #     result = []
-    #     for i in range(0, count, 2):
-    #         val = data[start + i]
-    #         line = self.curLines[val] if (type(val) == int)  else val
-    #         p0:SketchPoint = line.startSketchPoint if data[start + i + 1] == 0 else line.endSketchPoint
-    #         result.append(p0)
-    #     return result
+    # Returns a line whether linex is an index or actual line
+    def fromLineOrIndex(self, linex):
+        return self.curLines[linex] if (type(linex) == int) else linex 
+
 
 
     def mergePoints(self, p0:f.SketchPoint, p1:f.SketchPoint):
@@ -245,7 +241,6 @@ class TurtlePath:
         lines = self.draw(baseLine, path, False)
         construction = lines[0]
         self.constraints.addMidPoint(construction.startSketchPoint, baseLine)
-        #self.constraints.addPerpendicular(construction, baseLine)
         self.setLineLength(self.sketch, construction, lengthExpr)
         return lines[0]
         
@@ -261,7 +256,6 @@ class TurtlePath:
         pp0 = core.Point3D.create(p0.x + rpx, p0.y + rpy, 0)
         pp1 = core.Point3D.create(p1.x + rpx, p1.y + rpy, 0)
         line2 = self.sketchLines.addByTwoPoints(pp0, pp1)
-        #self.sketch.geometricself.constraints.addParallel(line, line2)
         return line2
     
     # returns double value of expression evaluated to current units

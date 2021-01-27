@@ -2,6 +2,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import os, math, re
 from .TurtleUtils import TurtleUtils
+from .TurtleComponent import TurtleComponent
 from .TurtleSketch import TurtleSketch
 from .TurtleParams import TurtleParams
 from .TurtlePath import TurtlePath
@@ -19,38 +20,38 @@ pZIP_LENGTH = "zipLength"
 
 class JointMaker:
     def __init__(self):
-        self.baseSketch:f.Sketch = self.ensureSelectionIsType(f.Sketch)
-        if not self.baseSketch:
+        sketch:f.Sketch = self.ensureSelectionIsType(f.Sketch)
+        if not sketch:
             return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
 
-        self.rootTSketch = TurtleSketch(self.baseSketch)
+        self.rootComponent = TurtleComponent(root)
+        self.baseComponent = TurtleComponent.createFromSketch(sketch)
+
+        self.baseSketch = TurtleSketch(sketch)
         TurtleParams.instance().addParams(
             pMID, 3,
             pOUTER, 2,
-            pFULL, "mid + outer * 2",
+            pFULL, pMID + "+" + pOUTER + " * 2",
             pLIP, 1,
             pSHELF_WIDTH, 40,
             pZIP_WIDTH, 1,
-            pZIP_LENGTH, "zipWidth * 10")
+            pZIP_LENGTH, pZIP_WIDTH + " * 10")
 
-        self.midPlane = self.rootTSketch.createOffsetPlane(pSHELF_WIDTH, root, "MidPlane")
-
-        fullProfile = self.rootTSketch.combineProfiles()
-        self.shelfLines = self.rootTSketch.getSingleLines()
+        self.midPlane = self.rootComponent.createOffsetPlane(self.baseSketch.referencePlane, pSHELF_WIDTH, "MidPlane")
+        fullProfile = self.baseSketch.combineProfiles()
+        self.shelfLines = self.baseSketch.getSingleLines()
 
         self.createWalls(fullProfile)
         self.createShelves()
     
     def createWalls(self, profile):
-        comp = self.rootTSketch.component
-        layers = TurtleLayers(comp, profile, [pOUTER, pMID, pOUTER])
-
+        layers = TurtleLayers(self.baseComponent, profile, [pOUTER, pMID, pOUTER])
         # wall cuts
-        outersketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(0)) 
-        outerProfile = self.createWallOuterCuts(outersketch)
-        innersketch = TurtleSketch.createWithPlane(comp, layers.startFaceAt(1))
-        innerProfile = self.createWallInsideCuts(innersketch)
+        outerWallSketch = self.baseComponent.createSketch(layers.startFaceAt(0), "outerWallSketch")
+        outerProfile = self.drawWallOuterCuts(outerWallSketch)
+        innerWallSketch = self.baseComponent.createSketch(layers.startFaceAt(1), "innerWallSketch")
+        innerProfile = self.drawWallInsideCuts(innerWallSketch)
         layers.cutWithProfiles([outerProfile, innerProfile, innerProfile])
 
         layers.mirrorLayers(self.midPlane, False)
@@ -59,57 +60,13 @@ class JointMaker:
         for idx, line in enumerate(self.shelfLines):
             layers = self.createHalfShelf(line, idx)
             layers.mirrorLayers(self.midPlane, True)
-    
-    def createWallZipCutProfile(self, tsketch:TurtleSketch, shelfLine:f.SketchLine):
-        baseLine:f.SketchLine = tsketch.projectLine(shelfLine)
-        construction = tsketch.addMidpointConstructionLine(baseLine, pOUTER, True)
-
-        tsketch.draw(construction, "M75LF50 RF50 RF50 RF50")
-        tsketch.constrain( [
-            "ME", [0,0,3,1],
-            "PE", [0, construction],
-            "PA", [0,2, 1,3],
-            "PE", [0, 1],
-            "MI", [construction, 1, 0],
-            "LL", [0, pZIP_WIDTH, 
-                    1, pMID]
-        ])
-
-    def createWallOuterCuts(self, tsketch:TurtleSketch):
-        for idx, line in enumerate(self.shelfLines):
-            self.createWallZipCutProfile(tsketch, line)
-        fullProfile = tsketch.combineProfiles()
-        tsketch.removeLargestProfile(fullProfile)
-        return fullProfile
-
-    def createWallInsideCuts(self, tsketch:TurtleSketch):
-        for idx, line in enumerate(self.shelfLines):
-            baseLine:f.SketchLine = tsketch.projectLine(line)
-            baseLine.isConstruction = True
-            construction = tsketch.addMidpointConstructionLine(baseLine, None, True)
-
-            lines = tsketch.drawClosed(construction, "RM20L180 F40 RF2 RF40 RF20")
-            tsketch.constrain( [
-                "PA", [0,2, 1,3],
-                "PE", [0, 1],
-                "CO", [0, baseLine],
-                "LL", [1, pFULL],
-                "SY", [1, 3, construction],
-                "PD", [baseLine, 0, 0, 0, pLIP]
-            ])
-
-        fullProfile = tsketch.combineProfiles()
-        fullProfile.removeByIndex(0)
-        return fullProfile
 
     def createHalfShelf(self, line:f.SketchLine, index) -> TurtleLayers:
-        comp = self.createComponent("shelf"+ str(index))
-        plane = self.rootTSketch.createOrthoganalPlane(line, comp)
-        tsketch = TurtleSketch.createWithPlane(comp, plane)
-        prj = tsketch.sketch.project(line)
-        baseLine = prj[0]
+        tcomp = self.rootComponent.createNew("shelf"+ str(index))
+        plane = tcomp.createOrthoganalPlane(line)
+        tsketch = tcomp.createSketch(plane)
+        baseLine = tsketch.projectLine(line)
         construction = tsketch.addMidpointConstructionLine(baseLine)
-
         lines = tsketch.draw(construction, 
             "M10 LM1",
             "#0 F47",
@@ -146,13 +103,53 @@ class JointMaker:
                     12, pZIP_WIDTH + " * 2",
                     2, pLIP]
         ] )
-
         cutProfile = tsketch.getProfileAt(0)
         fullProfile = tsketch.combineProfiles()
-        
-        layers = TurtleLayers(comp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER])
+        layers = TurtleLayers(tcomp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER])
         return layers
     
+    
+    def drawWallInsideCuts(self, tsketch:TurtleSketch) -> f.Profile:
+        for line in self.shelfLines:
+            baseLine:f.SketchLine = tsketch.projectLine(line, True)
+            construction = tsketch.addMidpointConstructionLine(baseLine, None, True)
+
+            lines = tsketch.drawClosed(construction, "RM20L180 F40 RF2 RF40 RF20")
+            tsketch.constrain( [
+                "PA", [0,2, 1,3],
+                "PE", [0, 1],
+                "CO", [0, baseLine],
+                "LL", [1, pFULL],
+                "SY", [1, 3, construction],
+                "PD", [baseLine, 0, 0, 0, pLIP]
+            ])
+
+        fullProfile = tsketch.combineProfiles()
+        fullProfile.removeByIndex(0)
+        return fullProfile
+
+    def drawWallOuterCuts(self, tsketch:TurtleSketch) -> f.Profile:
+        for line in self.shelfLines:
+            self.drawZipNotch(tsketch, line)
+        fullProfile = tsketch.combineProfiles()
+        tsketch.removeLargestProfile(fullProfile)
+        return fullProfile
+
+    def drawZipNotch(self, tsketch:TurtleSketch, shelfLine:f.SketchLine):
+        baseLine:f.SketchLine = tsketch.projectLine(shelfLine)
+        construction = tsketch.addMidpointConstructionLine(baseLine, pOUTER, True)
+
+        tsketch.draw(construction, "M75LF50 RF50 RF50 RF50")
+        tsketch.constrain( [
+            "ME", [0,0,3,1],
+            "PE", [0, construction],
+            "PA", [0,2, 1,3],
+            "PE", [0, 1],
+            "MI", [construction, 1, 0],
+            "LL", [0, pZIP_WIDTH, 
+                    1, pMID]
+        ])
+
 
     def createComponent(self, name):
         occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create())

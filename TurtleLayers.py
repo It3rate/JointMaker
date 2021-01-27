@@ -1,17 +1,17 @@
+
 import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
 from .TurtleUtils import TurtleUtils
 from .TurtleParams import TurtleParams
-from .TurtleAppearance import TurtleAppearance
 
 f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class TurtleLayers(list):
     # pass lists, or optionally single elements if specifying layerCount. layerCount should match list sizes if one is passed.
-    def __init__(self, component:f.Component, profiles:list, thicknesses:list, layerCount:int = 1):
-        self.component = component
+    def __init__(self, tcomponent:'TurtleComponent', profiles:list, thicknesses:list, layerCount:int = 1):
+        self.tcomponent = tcomponent
+        self.component = tcomponent.component
         self.parameters = TurtleParams.instance()
-        self.appearances = TurtleAppearance.instance()
 
         isListProfiles = isinstance(profiles, list)
         isListThickness = isinstance(thicknesses, list)
@@ -57,15 +57,10 @@ class TurtleLayers(list):
         extrudes = []
         startFace = 0
         for i in range(self.layerCount):
-            extruded = self.extrude(self.profiles[i], startFace, self.thicknesses[i])
+            extruded = self.tcomponent.extrude(self.profiles[i], startFace, self.thicknesses[i])
             extrudes.append(extruded)
             startFace = extruded.endFaces.item(0)
         return extrudes
-
-    def colorExtrudedBodies(self, extruded:f.ExtrudeFeature, thickness):
-        appr = self.appearances.getAppearance(thickness)
-        for body in extruded.bodies:
-            body.appearance = appr
 
 
     def cutWithProfiles(self, profiles):
@@ -84,26 +79,6 @@ class TurtleLayers(list):
             for body in bodies:
                 self.cutBodyWithProfile(profiles[pindex], body)
 
-    def extrude(self, profile, start, expression):
-        if profile is None:
-            return
-        extrudes = self.component.features.extrudeFeatures
-        dist = self.parameters.createValue(expression)
-        extrudeInput = extrudes.createInput(profile, f.FeatureOperations.NewBodyFeatureOperation) 
-        extentDistance = f.DistanceExtentDefinition.create(dist) 
-        extrudeInput.setOneSideExtent(extentDistance, f.ExtentDirections.PositiveExtentDirection)
-        if start:
-            startFrom = f.FromEntityStartDefinition.create(start, self.parameters.createValue(0))
-            extrudeInput.startExtent = startFrom
-
-        extrude = extrudes.add(extrudeInput) 
-        # bug: Need to reassign expression
-        extDef = f.DistanceExtentDefinition.cast(extrude.extentOne)
-        extDef.distance.expression = expression
-
-        self.colorExtrudedBodies(extrude, expression)
-        return extrude
-
     def cutBodyWithProfile(self, profile:f.Profile, body:f.BRepBody):
         extrudes = body.parentComponent.features.extrudeFeatures
         cutInput = extrudes.createInput(profile, f.FeatureOperations.CutFeatureOperation) 
@@ -112,7 +87,6 @@ class TurtleLayers(list):
         # To be robust needs to use bodies farthest face as entity, but for now just use full*2 symetrically
         # This works in the context of joints because we have participating bodies, but is weak in a lot of cases
         #ext = f.ToEntityExtentDefinition.create(body, True)
-        #cutInput.setAllExtent(f.ExtentDirections.NegativeExtentDirection)
         cutInput.setSymmetricExtent(self.parameters.createValue("full * 2"), True)
 
         cutInput.participantBodies = [body]
@@ -134,7 +108,7 @@ class TurtleLayers(list):
             return
         extrudes = self.comp.features.extrudeFeatures
         extrudeInput = extrudes.createInput(profile, f.FeatureOperations.CutFeatureOperation)
-        distanceForCut = adsk.core.ValueInput.createByString("-" + pFULL)
+        distanceForCut = adsk.core.ValueInput.createByString("-" + pFULL) # should be all, and move to tcomponent
         extrudeInput.setDistanceExtent(False, distanceForCut)
         bodies = []
         for body in component.bRepBodies:

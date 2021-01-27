@@ -10,6 +10,7 @@ f,core,app,ui,design,root = TurtleUtils.initGlobals()
 class TurtleSketch:
     def __init__(self, sketchTarget:f.Sketch):
         self.sketch:f.Sketch = sketchTarget
+        self.name = self.sketch.name
         self.parameters = TurtleParams.instance()
         self.referencePlane = sketchTarget.referencePlane
         self.component = sketchTarget.parentComponent
@@ -27,6 +28,13 @@ class TurtleSketch:
     def createWithPlane(cls, component:f.Component, planarEntity):
         sketch = component.sketches.add(planarEntity)
         return cls(sketch)
+
+    @property
+    def name(self):
+        return self.sketch.name
+    @name.setter
+    def name(self, val):
+        self.sketch.name = val
 
     def draw(self, line:f.SketchLine, *data:str):
         data = " ".join(data)
@@ -86,12 +94,16 @@ class TurtleSketch:
 
 
 
-    def projectLine(self, line:f.SketchLine):
+    def projectLine(self, line:f.SketchLine, makeConstruction = False):
         pp0 = self.sketch.project(line.startSketchPoint)
         pp1 = self.sketch.project(line.endSketchPoint)
-        return self.sketchLines.addByTwoPoints(pp0[0], pp1[0])
+        line = self.sketchLines.addByTwoPoints(pp0[0], pp1[0])
+        if makeConstruction:
+            line.isConstruction = True
+        return line
 
-    def addMidpointConstructionLine(self, baseLine:f.SketchLine, lengthExpr=None, toLeft=True):
+    def addMidpointConstructionLine(self, linex, lengthExpr=None, toLeft=True):
+        baseLine:f.SketchLine = self.path.fromLineOrIndex(linex)
         constraints = self.sketch.geometricConstraints
         path = "XM50LF50X" if toLeft else "XM50RF50X"
         lines = self.path.draw(baseLine, path)
