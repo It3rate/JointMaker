@@ -94,10 +94,39 @@ class TurtleComponent:
         self.colorExtrudedBodies(extruded, expression)
         return extruded
 
+    def cutComponent(self, profile):
+        bodies = self.getBodies()
+        for body in bodies:
+            self.cutBodyWithProfile(profile)
+
+    # def cutComponent(self, profile):
+    #     if profile is None:
+    #         return
+    #     extrudes = self.component.features.extrudeFeatures
+    #     extrudeInput = extrudes.createInput(profile, f.FeatureOperations.CutFeatureOperation)
+    #     extrudeInput.setAllExtent(adsk.fusion.ExtentDirections.SymmetricExtentDirection)
+    #     extrudeInput.participantBodies = getBodies()
+    #     extrude = extrudes.add(extrudeInput) 
+    #     return extrude
+
+    def cutBodyWithProfile(self, profile:f.Profile, body:f.BRepBody):
+        extrudes = body.parentComponent.features.extrudeFeatures
+        cutInput = extrudes.createInput(profile, f.FeatureOperations.CutFeatureOperation) 
+        cutInput.setOneSideToExtent(body, True)
+        cutInput.participantBodies = [body]
+        extrude = extrudes.add(cutInput) 
+        return extrude
+
     def colorExtrudedBodies(self, extruded:f.ExtrudeFeature, thickness):
         appr = self.appearances.getAppearance(thickness)
         for body in extruded.bodies:
             body.appearance = appr
+
+    def getBodies(self):
+        bodies = []
+        for body in self.component.bRepBodies:
+            bodies.append(body)
+        return pBodies
 
     @classmethod
     def createComponent(cls, parent:f.Component, name):

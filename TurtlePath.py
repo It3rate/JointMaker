@@ -322,3 +322,6 @@ class TurtlePath:
     @classmethod
     def printPoint(self, pt:f.SketchPoint):
         print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")
+
+    def encodeFromSketch():
+        pass
