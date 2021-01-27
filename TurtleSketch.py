@@ -3,12 +3,15 @@ import adsk.core, adsk.fusion, traceback
 import os, math, re, sys
 from .Utils import Utils
 from .TurtlePath import TurtlePath
+from .TurtleParams import TurtleParams
 
 f,core,app,ui,design,root = Utils.initGlobals()
 
 class TurtleSketch:
     def __init__(self, sketchTarget:f.Sketch):
         self.sketch:f.Sketch = sketchTarget
+        self.parameters = TurtleParams.instance()
+        self.referencePlane = sketchTarget.referencePlane
         self.component = sketchTarget.parentComponent
         self.constraints:f.GeometricConstraints = sketchTarget.geometricConstraints
         self.dimensions:f.SketchDimensions = sketchTarget.sketchDimensions
@@ -16,7 +19,14 @@ class TurtleSketch:
         self.profiles:f.Profiles = sketchTarget.profiles
         self.path:TurtlePath = TurtlePath(self.sketch)
 
-
+    @classmethod
+    def createWithSketch(cls, sketch:f.Sketch):
+        return cls(sketch)
+        
+    @classmethod
+    def createWithPlane(cls, component:f.Component, planarEntity):
+        sketch = component.sketches.add(planarEntity)
+        return cls(sketch)
 
     def draw(self, line:f.SketchLine, *data:str):
         data = " ".join(data)
@@ -150,4 +160,56 @@ class TurtleSketch:
         result = self.findSmallestProfile(collection)   
         collection.removeByItem(result)
         return result
+
+        
+    def getSingleLines(self):
+        lines = []
+        touched = []
+        for gc in self.sketch.geometricConstraints:
+            if isinstance(gc, f.CoincidentConstraint) and gc.point.connectedEntities:
+                for con in gc.point.connectedEntities:
+                    if isinstance(con, f.SketchLine):
+                        touched.append(con) 
+                if isinstance(gc.entity, f.SketchLine):
+                    touched.append(gc.entity) # bug: enity reference doesn't seem to be the same object as original
+
+        for line in self.sketch.sketchCurves.sketchLines:
+            if line.isConstruction:
+                continue
+            if line.startSketchPoint.connectedEntities.count > 1:
+                continue
+            if line.endSketchPoint.connectedEntities.count > 1:
+                continue
+
+            lines.append(line)
+
+        result = []
+        for line in lines:
+            isTouched = False
+            for t in touched:
+                if TurtlePath.isEquivalentLine(t, line):
+                    isTouched = True
+                    break
+            if not isTouched:
+                result.append(line)
+
+        return result
     
+    
+    def createOffsetPlane(self, offset, destinationComponent:f.Component = None, name:str = None):
+        comp = destinationComponent if destinationComponent else self.component
+        comp.isConstructionFolderLightBulbOn = True
+        planeInput:f.ConstructionPlaneInput = comp.constructionPlanes.createInput()
+        dist = self.parameters.createValue(offset)
+        planeInput.setByOffset(self.referencePlane, dist)
+        result = comp.constructionPlanes.add(planeInput)
+        if name:
+            result.name = name
+        return result
+
+    def createOrthoganalPlane(self, line:f.SketchLine, destinationComponent:f.Component = None):
+        comp = destinationComponent if destinationComponent else self.component
+        planeInput = comp.constructionPlanes.createInput()
+        planeInput.setByAngle(line, adsk.core.ValueInput.createByReal(-math.pi/2.0), self.referencePlane)
+        result = comp.constructionPlanes.add(planeInput)
+        return result

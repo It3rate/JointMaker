@@ -42,6 +42,12 @@ class MultiLayer(list):
             result.extend(self.ensureBodiesAsList(self[index].bodies))
         return result
 
+    def allBodies(self):
+        result = []
+        for index in range(self.layerCount):
+            result.extend(self.ensureBodiesAsList(self[index].bodies))
+        return result
+
     def cutWithProfiles(self, profiles):
         cuttingProfiles = profiles if isinstance(profiles, list) else [profiles] * self.layerCount
         #todo
@@ -106,6 +112,15 @@ class MultiLayer(list):
         extrude = extrudes.add(cutInput) 
         return extrude
 
+    def mirrorLayers(self, plane:f.ConstructionPlane, isJoined:bool = False):
+        mirrorFeatures = self.component.features.mirrorFeatures
+        inputEntites = adsk.core.ObjectCollection.create()
+        for body in self.allBodies():
+            inputEntites.add(body)
+        mirrorInput:f.MirrorFeatureInput = mirrorFeatures.createInput(inputEntites, plane)
+        mirrorInput.isCombine = isJoined
+        mirrorFeature = mirrorFeatures.add(mirrorInput)
+        return mirrorFeature
             
     def cutComponent(self, profile, component:f.Component):
         if profile is None:
