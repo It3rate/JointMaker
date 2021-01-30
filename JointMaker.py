@@ -20,7 +20,7 @@ pZIP_LENGTH = "zipLength"
 
 class JointMaker:
     def __init__(self):
-        sketch:f.Sketch = self.ensureSelectionIsType(f.Sketch)
+        sketch:f.Sketch = TurtleUtils.ensureSelectionIsType(f.Sketch)
         if not sketch:
             return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType
@@ -103,6 +103,7 @@ class JointMaker:
                     12, pZIP_WIDTH + " * 2",
                     2, pLIP]
         ] )
+
         cutProfile = tsketch.getProfileAt(0)
         fullProfile = tsketch.combineProfiles()
         layers = TurtleLayers(tcomp, [fullProfile,cutProfile,fullProfile], [pOUTER, pMID, pOUTER])
@@ -156,21 +157,5 @@ class JointMaker:
         occ.component.name = name
         return occ.component
 
-    def ensureSelectionIsType(self, selType):
-        typeName = selType.__name__
-        title = "Selection Required"
-        if not design:
-            ui.messageBox('No active Fusion design', title)
-            return
-
-        if ui.activeSelections.count < 1:
-            ui.messageBox('Select ' + typeName + ' before running command.', title)
-            return
-
-        selected = ui.activeSelections.item(0).entity
-        if not type(selected) is selType:
-            ui.messageBox('Selected object needs to be a ' + typeName + ". It is a " + str(type(selected)) + ".", title)
-            return
-        return selected
 
 

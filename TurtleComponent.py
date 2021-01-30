@@ -49,13 +49,16 @@ class TurtleComponent:
         self.activeSketch = tsketch
         return tsketch
     
-    def getSketchByName(self, name):
+    def getTSketchByName(self, name) -> TurtleSketch:
         result = None
         for sketch in self._sketches:
             if sketch.name == name:
                 result = sketch
                 break
         return result
+
+    def getTSketch(self, sketch:f.Sketch) -> TurtleSketch:
+        return self.getTSketchByName(sketch.name)
 
 
     def createOffsetPlane(self, referencePlane, offset, name:str = None):

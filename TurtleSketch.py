@@ -173,7 +173,6 @@ class TurtleSketch:
         collection.removeByItem(result)
         return result
 
-        
     def getSingleLines(self):
         lines = []
         touched = []

@@ -320,8 +320,16 @@ class TurtlePath:
         print("]", end=newLine)
 
     @classmethod
+    def printPoints(self, points:f.SketchPoint, newLine="\n"):
+        spc = "Points: "
+        for point in points:
+            print(spc, end="")
+            print("(",end="")
+            self.printPoint(point)
+            print(")",end="")
+            spc=", "
+        print("",end=newLine)
+
+    @classmethod
     def printPoint(self, pt:f.SketchPoint):
         print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")
-
-    def encodeFromSketch():
-        pass
