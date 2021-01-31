@@ -316,7 +316,7 @@ class TurtlePath:
         self.printPoint(line.startSketchPoint)
         print(", ",end="")
         self.printPoint(line.endSketchPoint)
-        print("("+ str(round(line.length, 2)) + ")", end="")
+        print("("+ TurtleUtils.round(line.length) + ")", end="")
         print("]", end=newLine)
 
     @classmethod
@@ -332,4 +332,4 @@ class TurtlePath:
 
     @classmethod
     def printPoint(self, pt:f.SketchPoint):
-        print(str(round(pt.geometry.x, 2)) +", " + str(round(pt.geometry.y,2)),end="")
+        print(TurtleUtils.round(pt.geometry.y) +", " + TurtleUtils.round(pt.geometry.y),end="")

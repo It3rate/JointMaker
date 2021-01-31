@@ -35,9 +35,9 @@ class SketchEncoder:
         self.points = {}
         self.pointKeys = []
         self.pointValues = []
-        self.lines = {}
-        self.lineKeys = []
-        self.lineValues = []
+        self.curves = {}
+        self.curveKeys = []
+        self.curveValues = []
         self.chains = []
         self.constraints = {}
         self.dimensions = {}
@@ -53,15 +53,18 @@ class SketchEncoder:
         TurtlePath.printPoints(self.points.values())
 
         chains = self.encodeAllChains()
-        self.lineKeys = list(self.lines)
-        self.lineValues = list(self.lines.values())
+        self.curveKeys = list(self.curves)
+        self.curveValues = list(self.curves.values())
+        index = 0
         for chain in chains:
-            print("")
             comma = ""
-            for lineIndex in chain:
-                line = self.lineValues[lineIndex]
-                print(comma + self.printLineIndexes(line), end="")
+            print(str(index) + "# ", end="")
+            for curveIndex in chain:
+                curve:f.SketchCurve = self.curveValues[curveIndex]
+                print(comma + self.encodeCurve(curve), end="")
                 comma = ","
+                index += 1
+            print("")
 
         print("\nconstraints:")
         self.encodeAllConstraints()
@@ -93,14 +96,13 @@ class SketchEncoder:
         for dim in self.sketch.sketchDimensions:
             self.dimensions[dim.entityToken] = self.encodeDimension(dim)
         
-
     def appendConnectedCurves(self, baseLine:f.SketchLine, tokens:list):
         connected = self.sketch.findConnectedCurves(baseLine)
         result = []
-        for line in connected:
-            self.lines[line.entityToken] = line
-            result.append(len(self.lines) - 1)
-            tokens.append(line.entityToken)
+        for curve in connected:
+            self.curves[curve.entityToken] = curve
+            result.append(len(self.curves) - 1)
+            tokens.append(curve.entityToken)
         return result
 
     def findConnectedCurves(self, baseLine:f.SketchLine):
@@ -110,12 +112,25 @@ class SketchEncoder:
             result.append(line)
         return result
 
-
     def pointIndex(self, token):
         return self.pointKeys.index(token)
 
     def linePointIndexes(self, line:f.SketchLine):
         return [self.pointIndex(line.startSketchPoint.entityToken), self.pointIndex(line.endSketchPoint.entityToken)]
+
+    def encodeCurve(self, curve:f.SketchCurve):
+        result = ""
+        tp = type(curve)
+        if tp is f.SketchLine:
+            result = "L" + self.encodeEntities(curve.startSketchPoint, curve.endSketchPoint)
+        elif tp is f.SketchArc:
+            return "A" + self.encodeEntities(curve.startSketchPoint, curve.centerSketchPoint, curve.endSketchPoint)
+        elif tp is f.SketchCircle:
+            result = "C" + self.encodeEntities(curve.centerSketchPoint) + self.encodeExpression(curve.radius)
+        elif tp is f.SketchEllipse:
+            result = "E" + self.encodeEntities(curve.centerSketchPoint) + self.encodeExpressions(curve.majorAxis, curve.majorAxisRadius, curve.minorAxisRadius)
+        return result
+    #  SketchConicCurve SketchEllipticalArc SketchFittedSpline SketchFixedSpline 
 
     def encodeConstraint(self, con:f.GeometricConstraint):
         result = ""
@@ -191,23 +206,38 @@ class SketchEncoder:
         print(result)
         return result
 
+    def encodeEntities(self, *points):
+        result = ""
+        for pt in points:
+            result += self.encodeEntity(pt)
+        return result
+
     def encodeEntity(self, entity):
         result = ""
         if entity in self.pointValues:
             result = "p" + str(self.pointValues.index(entity))
-        elif entity in self.lineValues:
-            result = "l" + str(self.lineValues.index(entity))
+        elif entity in self.curveValues:
+            result = "c" + str(self.curveValues.index(entity))
+        return result
+
+    def encodeExpressions(self, *expressions):
+        result = ""
+        for expr in expressions:
+            result += self.encodeExpression(expr)
         return result
 
     def encodeExpression(self, expr):
-        result = ""
-        if expr:
-            result = "v" + str(expr.expression)
+        tp = type(expr)
+        result = "v"
+        if tp is float or tp is int:
+            result += TurtleUtils.round(expr)
+        elif tp is f.ModelParameter:
+            result += str(expr.expression).replace(" ", "")
+        elif tp is core.Point2D or tp is core.Vector2D:
+            pt:core.Point2D = expr
+            result += "["+TurtleUtils.round(expr.x)+","+TurtleUtils.round(expr.y)+"]"
+        elif tp is core.Point3D or tp is core.Vector3D:
+            pt:core.Point3D = expr
+            result += "["+TurtleUtils.round(expr.x)+","+TurtleUtils.round(expr.y)+","+TurtleUtils.round(expr.z)+"]"
         return result
 
-    def printLineIndexes(self, line:f.SketchLine):
-        if type(line) is f.SketchLine:
-            return "(" + str(self.pointIndex(line.startSketchPoint.entityToken)) + "," + str(self.pointIndex(line.endSketchPoint.entityToken)) + ")"
-        elif type(line) is f.SketchCircle:
-            circ:f.SketchCircle = line
-            return "(" + str(self.pointIndex(circ.centerSketchPoint.entityToken)) + ")"

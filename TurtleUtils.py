@@ -1,5 +1,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
 
+__decimalPlaces__ = 2
+
 class TurtleUtils:
     def __init__(self):
         super().__init__()
@@ -43,3 +45,7 @@ class TurtleUtils:
     def selectEntity(cls, entity):
         ui.activeSelections.clear()
         ui.activeSelections.add(entity)
+    
+    @classmethod
+    def round(cls, val):
+        return str(round(val, __decimalPlaces__))
