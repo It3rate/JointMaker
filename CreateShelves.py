@@ -4,6 +4,7 @@ from .TurtleUtils import TurtleUtils
 from .TurtleCommand import TurtleCommand
 from .JointMaker import JointMaker
 from .SketchEncoder import SketchEncoder
+from .SketchDecoder import SketchDecoder
 
 # command
 f,core,app,ui,design,root = TurtleUtils.initGlobals()
@@ -17,7 +18,8 @@ class CreateShelves(TurtleCommand):
 
     def runCommand(self):
         #JointMaker()
-        SketchEncoder()
+        #SketchEncoder()
+        SketchDecoder()
 
 
 def run(context):

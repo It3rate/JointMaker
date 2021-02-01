@@ -10,27 +10,11 @@ from .TurtleLayers import TurtleLayers
 
 f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
-pMID = "mid"
-pOUTER = "outer"
-pFULL = "full"
-pLIP = "lip"
-pSHELF_WIDTH = "shelfWidth"
-pZIP_WIDTH = "zipWidth"
-pZIP_LENGTH = "zipLength"
-
 class SketchEncoder:
     def __init__(self):
-        # self.baseLine:f.SketchLine = TurtleUtils.ensureSelectionIsType(f.SketchLine)
-        # if not self.baseLine:
-        #     return
-        # self.tcomponent = TurtleComponent.createFromSketch(self.baseLine.parentSketch)
-        # self.tsketch = self.tcomponent.getTSketch(self.baseLine.parentSketch)
-
         self.sketch:f.Sketch = TurtleUtils.ensureSelectionIsType(f.Sketch)
         if not self.sketch:
             return
-        self.tcomponent = TurtleComponent.createFromSketch(self.sketch)
-        #self.tsketch = self.tcomponent.getTSketch(sketch)
         
         self.points = {}
         self.pointKeys = []
@@ -41,12 +25,12 @@ class SketchEncoder:
         self.chains = []
         self.constraints = {}
         self.dimensions = {}
-        self.encodeFromSketch()
 
+        self.encodeFromSketch()
         TurtleUtils.selectEntity(self.sketch)
-        
 
     def encodeFromSketch(self):
+        os.system('cls')
         self.data = {}
 
         self.parseAllPoints()
@@ -61,13 +45,16 @@ class SketchEncoder:
         self.parseAllDimensions()
 
         self.data["Points"] = self.pointValues
-        print("Points:\n" + self.encodePoints(*self.data["Points"]))
         self.data["Chains"] = self.chains
-        print("Chains:\n" + self.encodeChains(self.data["Chains"]))
         self.data["Constraints"] = self.constraints.values()
-        print("Constraints:\n" + ",".join(self.data["Constraints"]))
         self.data["Dimensions"] = self.dimensions.values()
-        print("Dimensions:\n" + ",".join(self.data["Dimensions"]))
+
+        print("{")
+        print("\'Points\':[\n" + self.encodePoints(*self.data["Points"]) + "\n],")
+        print("\'Chains\':[\n" + self.encodeChains(self.data["Chains"]) + "\n],")
+        print("\'Constraints\':[\n\'" + "\',\'".join(self.data["Constraints"]) + "\'\n],")
+        print("\'Dimensions\':[\n\'" + "\',\'".join(self.data["Dimensions"]) + "\'\n]")
+        print("}")
 
         
         #TurtlePath.printLines(chain)
@@ -249,12 +236,12 @@ class SketchEncoder:
         return result
 
     def encodePoints(self, *points):
-        result = "["
+        result = ""
         comma = ""
         for pt in points:
             result += comma + self.encodePoint(pt)
             comma=","
-        return result + "]"
+        return result
 
     def encodePoint(self, pt:f.SketchPoint):  
         tp = type(pt)
@@ -271,13 +258,15 @@ class SketchEncoder:
         result = []
         index = 0
         for chain in chains:
-            s = ""
+            startIndex = index
+            s = "\'"
             comma = ""
-            s += str(index) + "# "
             for curveIndex in chain:
                 curve:f.SketchCurve = self.curveValues[curveIndex]
                 s += comma + self.encodeCurve(curve)
-                comma = ","
+                comma = " "
                 index += 1
+            rng = str(startIndex) + "-" + str(index - 1) if index - 1 > startIndex else str(startIndex)
+            s += "\', # " + rng
             result.append(s)
         return "\n".join(result)
