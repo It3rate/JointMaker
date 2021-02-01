@@ -115,7 +115,12 @@ class TurtlePath:
                     lines = self.grabLines(data, dataIndex, 2)
                     self.makeEqual(lines[0], lines[1])
 
-            elif cmd.startswith('CO'): # COLLINEAR
+            elif cmd.startswith('CL'): # COLLINEAR
+                for dataIndex in range(0, len(data), 2):
+                    lines = self.grabLines(data, dataIndex, 2)
+                    self.makeCollinear(lines[0], lines[1])
+
+            elif cmd.startswith('CO'): # COINCIDENT
                 for dataIndex in range(0, len(data), 2):
                     lines = self.grabLines(data, dataIndex, 2)
                     self.makeCollinear(lines[0], lines[1])
@@ -150,7 +155,7 @@ class TurtlePath:
                     lines = self.grabLines(data, dataIndex, 1)
                     dataIndex += 1
                     self.makeMidpoint(pts[0], lines[0])
-                    
+
             elif cmd.startswith('PD'): # POINTS DISTANCE
                 dataIndex = 0
                 while dataIndex < len(data):
@@ -210,6 +215,9 @@ class TurtlePath:
 
     def makeCollinear(self,  a:f.SketchLine, b:f.SketchLine):
         self.constraints.addCollinear(a, b)
+
+    def makeCoincident(self,  point:f.SketchPoint, line:f.SketchLine):
+        self.constraints.addCoincident(point, line)
 
     def makeEqual(self, a:f.SketchLine, b:f.SketchLine):
         self.constraints.addEqual(a, b)
