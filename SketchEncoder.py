@@ -112,11 +112,11 @@ class SketchEncoder:
         if tp is f.SketchLine:
             result = "L" + ctrn + self.encodeEntities(curve.startSketchPoint, curve.endSketchPoint)
         elif tp is f.SketchArc:
-            return "A" + ctrn + self.encodeEntities(curve.startSketchPoint, curve.centerSketchPoint, curve.endSketchPoint)
+            return "A" + ctrn + self.encodeEntities(curve.centerSketchPoint, curve.startSketchPoint) + self.encodeExpression(curve.geometry.endAngle)
         elif tp is f.SketchCircle:
             result = "C" + ctrn + self.encodeEntities(curve.centerSketchPoint) + self.encodeExpression(curve.radius)
         elif tp is f.SketchEllipse:
-            result = "E" + ctrn + self.encodeEntities(curve.centerSketchPoint) + self.encodeExpressions(curve.majorAxis, curve.majorAxisRadius, curve.minorAxisRadius)
+            result = "E" + ctrn + self.encodeEntities(curve.centerSketchPoint, curve.majorAxisLine.startSketchPoint, curve.minorAxisLine.startSketchPoint)
         elif tp is f.SketchConicCurve:
             result = "O" + ctrn + self.encodeEntities(curve.startSketchPoint, curve.apexSketchPoint, curve.endSketchPoint) + self.encodeExpressions(curve.length)
         return result
@@ -147,7 +147,7 @@ class SketchEncoder:
             result = "SY" + self.encodeEntities(cCon.entityOne,cCon.entityTwo,cCon.symmetryLine)
         elif(tp is f.MidPointConstraint):
             cCon:f.MidPointConstraint = con
-            result = "MI" + self.encodeEntities(cCon.midPointCurve,cCon.point)
+            result = "MI" + self.encodeEntities(cCon.point,cCon.midPointCurve)
         elif(tp is f.TangentConstraint):
             cCon:f.TangentConstraint = con
             result = "TA" + self.encodeEntities(cCon.curveOne, cCon.curveTwo)
@@ -216,6 +216,9 @@ class SketchEncoder:
             result = "p" + str(self.pointValues.index(entity))
         elif entity in self.curveValues:
             result = "c" + str(self.curveValues.index(entity))
+        else:
+            result = self.encodeExpression(entity)
+
         return result
 
     def encodeExpressions(self, *expressions):

@@ -123,7 +123,7 @@ class TurtlePath:
             elif cmd.startswith('CO'): # COINCIDENT
                 for dataIndex in range(0, len(data), 2):
                     lines = self.grabLines(data, dataIndex, 2)
-                    self.makeCollinear(lines[0], lines[1])
+                    self.makeCoincident(lines[0], lines[1])
 
             elif cmd.startswith('SY'): # SYMETRIC
                 for dataIndex in range(0, len(data), 3):
