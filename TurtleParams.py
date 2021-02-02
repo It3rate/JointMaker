@@ -47,6 +47,12 @@ class TurtleParams:
         else:
             return adsk.core.ValueInput.createByObject(val)
 
+    def getUserParams(self):
+        result = {}
+        for param in design.userParameters:
+            result[param.name] = param.expression
+        return result
+
     def printAllParams(self):
         for param in design.userParameters:
             print(param.name + ": " + param.expression)

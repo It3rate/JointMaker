@@ -32,6 +32,9 @@ class SketchEncoder:
     def encodeFromSketch(self):
         os.system('cls')
         self.data = {}
+        tparams = TurtleParams.instance()
+        self.usedParams = []
+        self.params = tparams.getUserParams()
 
         self.parseAllPoints()
         self.pointKeys = list(self.points)
@@ -44,12 +47,14 @@ class SketchEncoder:
         self.parseAllConstraints()
         self.parseAllDimensions()
 
+        self.data["Params"] = self.params
         self.data["Points"] = self.pointValues
         self.data["Chains"] = self.chains
         self.data["Constraints"] = self.constraints.values()
         self.data["Dimensions"] = self.dimensions.values()
 
         print("{")
+        print("\'Params\':{\n" + self.encodeParams() + "},")
         print("\'Points\':[\n" + self.encodePoints(*self.data["Points"]) + "\n],")
         print("\'Chains\':[\n" + self.encodeChains(self.data["Chains"]) + "\n],")
         print("\'Constraints\':[\n\'" + "\',\'".join(self.data["Constraints"]) + "\'\n],")
@@ -104,6 +109,12 @@ class SketchEncoder:
 
     def linePointIndexes(self, line:f.SketchLine):
         return [self.pointIndex(line.startSketchPoint.entityToken), self.pointIndex(line.endSketchPoint.entityToken)]
+
+    def encodeParams(self):
+        result = ""
+        for key in self.usedParams:
+            result += "\'" + key + "\':\'" + self.params[key] + "\'\n"
+        return result
 
     def encodeCurve(self, curve:f.SketchCurve):
         result = ""
@@ -161,11 +172,11 @@ class SketchEncoder:
         tp = type(dim)
         if(tp == f.SketchLinearDimension):
             tdim:f.SketchLinearDimension = dim
-            result = "SLD" + self.encodeEntities(tdim.entityOne,tdim.entityOne) + self.encodeExpression(tdim.parameter)
+            result = "SLD" + self.encodeEntities(tdim.entityOne,tdim.entityTwo) + self.encodeExpression(tdim.parameter)
 
         elif(tp == f.SketchOffsetDimension):
             tdim:f.SketchOffsetDimension = dim
-            result = "SOD" + self.encodeEntities(tdim.line) + self.encodeExpression(tdim.parameter)
+            result = "SOD" + self.encodeEntities(tdim.line,tdim.entityTwo) + self.encodeExpression(tdim.parameter)
 
         elif(tp == f.SketchAngularDimension):
             tdim:f.SketchAngularDimension = dim
@@ -233,7 +244,10 @@ class SketchEncoder:
         if tp is float or tp is int:
             result += "[" + TurtleUtils.round(expr) + "]"
         elif tp is f.ModelParameter:
-            result += str(expr.expression).replace(" ", "")
+            p = str(expr.expression).replace(" ", "")
+            result += p
+            if (p in self.params) and (not p in self.usedParams):
+                self.usedParams.append(p)
         else:
             result += self.encodePoint(expr)
         return result
