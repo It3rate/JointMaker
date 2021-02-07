@@ -224,3 +224,10 @@ class TurtleSketch:
         planeInput.setByAngle(line, adsk.core.ValueInput.createByReal(-math.pi/2.0), self.referencePlane)
         result = comp.constructionPlanes.add(planeInput)
         return result
+
+        
+    @classmethod
+    def getMidpoint(cls, curve:f.SketchCurve):
+        ev = curve.geometry.evaluator
+        pe = ev.getParameterExtents()
+        return ev.getPointAtParameter((pe[2] - pe[1]) * 0.5)[1]

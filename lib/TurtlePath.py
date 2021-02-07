@@ -302,10 +302,15 @@ class TurtlePath:
 
     @classmethod
     def isEquivalentLine(cls, a:f.SketchLine, b:f.SketchLine, maxDist = 0):
-        result = abs(a.geometry.startPoint.x - b.geometry.startPoint.x) <= maxDist and \
-            abs(a.geometry.startPoint.y - b.geometry.startPoint.y) <= maxDist and \
-            abs(a.geometry.endPoint.x - b.geometry.endPoint.x) <= maxDist and \
-            abs(a.geometry.endPoint.y - b.geometry.endPoint.y) <= maxDist
+        if type(a) == f.SketchCircle:
+            result = abs(a.geometry.center.x - b.geometry.center.x) <= maxDist and \
+                abs(a.geometry.center.y - b.geometry.center.y) <= maxDist and \
+                abs(a.geometry.radius - b.geometry.radius)
+        else:            
+            result = abs(a.geometry.startPoint.x - b.geometry.startPoint.x) <= maxDist and \
+                abs(a.geometry.startPoint.y - b.geometry.startPoint.y) <= maxDist and \
+                abs(a.geometry.endPoint.x - b.geometry.endPoint.x) <= maxDist and \
+                abs(a.geometry.endPoint.y - b.geometry.endPoint.y) <= maxDist
         return result
 
         

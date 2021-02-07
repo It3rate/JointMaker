@@ -66,7 +66,7 @@ class TurtleLayers(list):
 
     def mirrorLayers(self, plane:f.ConstructionPlane, isJoined:bool = False):
         mirrorFeatures = self.component.features.mirrorFeatures
-        inputEntites = adsk.core.ObjectCollection.create()
+        inputEntites = core.ObjectCollection.create()
         for body in self.allLayerBodies():
             inputEntites.add(body)
         mirrorInput:f.MirrorFeatureInput = mirrorFeatures.createInput(inputEntites, plane)

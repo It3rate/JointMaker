@@ -115,7 +115,7 @@ class JointMaker:
             baseLine:f.SketchLine = tsketch.projectLine(line, True)
             construction = tsketch.addMidpointConstructionLine(baseLine, None, True)
 
-            lines = tsketch.drawClosed(construction, "RM20L180 F40 RF20 RF40 RF20")
+            lines = tsketch.drawClosed(construction, "RM20L180 F40 RF2 RF40 RF20")
             tsketch.constrain( [
                 "PA", [0,2, 1,3],
                 "PE", [0, 1],

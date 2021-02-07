@@ -1,6 +1,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
+import tkinter as tk
 
-__decimalPlaces__ = 2
+__decimalPlaces__ = 3
 
 class TurtleUtils:
     def __init__(self):
@@ -30,6 +31,10 @@ class TurtleUtils:
         if not design:
             ui.messageBox('No active Fusion design', title)
             return
+        
+        # special case to make working with sketches easier 
+        if selType is f.Sketch and app.activeEditObject.classType == f.Sketch.classType:
+            return app.activeEditObject
 
         if ui.activeSelections.count < 1:
             ui.messageBox('Select ' + typeName + ' before running command.', title)
@@ -49,3 +54,31 @@ class TurtleUtils:
     @classmethod
     def round(cls, val):
         return str(round(val, __decimalPlaces__))
+        
+
+    @classmethod
+    def getClipboardText(cls):
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            result = root.clipboard_get()
+        except tk.TclError:
+            result = ""
+        return result
+
+    @classmethod
+    def setClipboardText(cls, data):
+        root = tk.Tk()
+        root.withdraw()
+        root.clipboard_clear()
+        root.clipboard_append(data)
+        root.update() # now it stays on the clipboard after the window is closed
+        root.destroy()
+
+    @classmethod
+    def clearClipboardText(cls):
+        root = tk.Tk()
+        root.withdraw()
+        root.clipboard_clear()
+        root.update()
+        root.destroy()
