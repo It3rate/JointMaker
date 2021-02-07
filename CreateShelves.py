@@ -17,9 +17,9 @@ class CreateShelves(TurtleCommand):
         super().__init__(cmdId, cmdName, cmdDescription)
 
     def runCommand(self):
-        #JointMaker()
+        JointMaker()
         #SketchEncoder()
-        SketchDecoder()
+        #SketchDecoder()
 
 
 def run(context):
