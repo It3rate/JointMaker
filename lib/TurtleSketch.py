@@ -185,7 +185,7 @@ class TurtleSketch:
                     touched.append(gc.entity) # bug: enity reference doesn't seem to be the same object as original
 
         for line in self.sketch.sketchCurves.sketchLines:
-            if line.isConstruction:
+            if not line.isConstruction:
                 continue
             if line.startSketchPoint.connectedEntities.count > 1:
                 continue
@@ -198,7 +198,7 @@ class TurtleSketch:
         for line in lines:
             isTouched = False
             for t in touched:
-                if TurtlePath.isEquivalentLine(t, line):
+                if TurtlePath.isEquivalentCurve(t, line):
                     isTouched = True
                     break
             if not isTouched:
@@ -206,6 +206,14 @@ class TurtleSketch:
 
         return result
     
+    def getSingleConstructionLine(self):
+        result = None
+        for line in self.sketch.sketchCurves.sketchLines:
+            if line.isConstruction:
+                result = line
+                break
+        return result
+
     
     def createOffsetPlane(self, offset, destinationComponent:f.Component = None, name:str = None):
         comp = destinationComponent if destinationComponent else self.component

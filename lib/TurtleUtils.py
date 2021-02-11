@@ -1,7 +1,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import tkinter as tk
 
-__decimalPlaces__ = 3
+__decimalPlaces__ = 4
 
 class TurtleUtils:
     def __init__(self):
@@ -58,11 +58,20 @@ class TurtleUtils:
 
     @classmethod
     def getClipboardText(cls):
+        # f = open("sketchData.txt", "w")
+        # f.write(result)
+        # f.close()
+        # command = 'type sketchData.txt | clip'
+        # os.system(command)
         root = tk.Tk()
         root.withdraw()
         try:
             result = root.clipboard_get()
+            # this clipboard is quite flakey, without this text can be on the clipboard but not detected
+            cls.clearClipboardText()
+            #cls.setClipboardText(result) 
         except tk.TclError:
+            #print(traceback.format_exc())
             result = ""
         return result
 

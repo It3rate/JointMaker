@@ -33,7 +33,8 @@ class TurtleParams:
         units = self.curUnits if unitKind=="" else unitKind
         result = design.userParameters.itemByName(name)
         if result is None:
-            result = design.userParameters.add(name, self.createValue(val, units), units, msg)
+            fval = self.createValue(val, units)
+            result = design.userParameters.add(name, fval, units, msg)
         return result
 
     def createValue(self, val, unitKind=""):
