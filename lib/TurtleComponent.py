@@ -115,7 +115,11 @@ class TurtleComponent:
     def cutBodyWithProfile(self, profile:f.Profile, body:f.BRepBody):
         extrudes = body.parentComponent.features.extrudeFeatures
         cutInput = extrudes.createInput(profile, f.FeatureOperations.CutFeatureOperation) 
-        cutInput.setOneSideToExtent(body, True)
+
+        toExtent = f.ToEntityExtentDefinition.create(body, False)
+        toExtent.isMinimumSolution = False
+        cutInput.setOneSideExtent(toExtent, f.ExtentDirections.SymmetricExtentDirection)
+
         cutInput.participantBodies = [body]
         extrude = extrudes.add(cutInput) 
         return extrude
