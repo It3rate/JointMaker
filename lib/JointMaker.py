@@ -20,7 +20,7 @@ pZIP_LENGTH = "zipLength"
 
 class JointMaker:
     def __init__(self):
-        sketch:f.Sketch = TurtleUtils.ensureSelectionIsType(f.Sketch)
+        sketch:f.Sketch = TurtleUtils.getTargetSketch(f.Sketch)
         if not sketch:
             return
         design.designType = adsk.fusion.DesignTypes.ParametricDesignType

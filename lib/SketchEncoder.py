@@ -13,7 +13,7 @@ f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class SketchEncoder:
     def __init__(self):
-        self.sketch:f.Sketch = TurtleUtils.ensureSelectionIsType(f.Sketch)
+        self.sketch:f.Sketch = TurtleUtils.getTargetSketch(f.Sketch)
         if not self.sketch:
             return
         

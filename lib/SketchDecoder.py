@@ -13,7 +13,7 @@ f,core,app,ui,design,root = TurtleUtils.initGlobals()
 
 class SketchDecoder:
     def __init__(self, data, transform = core.Matrix3D.create(), flipX = False, flipY = False):
-        self.sketch:f.Sketch = TurtleUtils.ensureSelectionIsType(f.Sketch)
+        self.sketch:f.Sketch = TurtleUtils.getTargetSketch(f.Sketch)
         if not self.sketch:
             return
         self.tcomponent = TurtleComponent.createFromSketch(self.sketch)
@@ -26,8 +26,6 @@ class SketchDecoder:
         self.flipX = flipX
         self.flipY = flipY
         self.assessGuidelineTransform(data) # align to selected guideline
-
-        print(str(self.transform.asArray()))
 
         self.decodeSketchData(data)
         self.decodeFromSketch()

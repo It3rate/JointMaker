@@ -25,7 +25,7 @@ class TurtleUtils:
 
 
     @classmethod
-    def ensureSelectionIsType(cls, selType):
+    def getTargetSketch(cls, selType):
         typeName = selType.__name__
         title = "Selection Required"
         if not design:

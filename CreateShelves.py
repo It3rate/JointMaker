@@ -13,7 +13,7 @@ class CreateShelves(TurtleCommand):
         cmdDescription = 'Creates three layer shelves and side walls based on a sketch.'
         super().__init__(cmdId, cmdName, cmdDescription)
 
-    def runCommand(self):
+    def onStartedRunning(self):
         JointMaker()
 
 

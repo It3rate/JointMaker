@@ -10,47 +10,43 @@ class TurtleCommand():
         super().__init__()
         self.handlers = []
         try:
-            cmdDef = ui.commandDefinitions.itemById(cmdId)
-            if not cmdDef:
-                cmdDef = ui.commandDefinitions.addButtonDefinition(cmdId, cmdName, cmdDesc)
+            self.commandDefinition = ui.commandDefinitions.itemById(cmdId)
+            if not self.commandDefinition:
+                self.commandDefinition = ui.commandDefinitions.addButtonDefinition(cmdId, cmdName, cmdDesc)
 
             onCommandCreated = self.createdHandler()
-            cmdDef.commandCreated.add(onCommandCreated)
+            self.commandDefinition.commandCreated.add(onCommandCreated)
             self.handlers.append(onCommandCreated)
-            cmdDef.execute()
+            self.commandDefinition.execute()
             # Prevent this module from being terminate when the script returns, because we are waiting for event handlers to fire
             adsk.autoTerminate(False)
         except:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
     def executeHandler(self):
-        return BaseCommandExecuteHandler(self)
+        return UICommandExecuteHandler(self)
 
     def createdHandler(self):
-        return BaseCommandCreatedHandler(self)
+        return UICommandCreatedHandler(self)
 
-    def runCommand(self):
-        pass
-
-    def requiredSelection(self):
+    def onStartedRunning(self):
         pass
 
 
 
-
-class BaseCommandExecuteHandler(adsk.core.CommandEventHandler):
+class UICommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self, turtleCommand:TurtleCommand):
         super().__init__()
         self.turtleCommand = turtleCommand
 
     def notify(self, args):
         try:
-            self.turtleCommand.runCommand()
+            self.turtleCommand.onStartedRunning()
             adsk.terminate()
         except:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-class BaseCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
+class UICommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def __init__(self, turtleCommand:TurtleCommand):
         super().__init__()
         self.turtleCommand = turtleCommand
