@@ -25,26 +25,33 @@ class TurtleUtils:
 
 
     @classmethod
-    def getTargetSketch(cls, selType):
+    def getTargetSketch(cls, selType, showMessage = True):
+        result = None
         typeName = selType.__name__
         title = "Selection Required"
         if not design:
-            ui.messageBox('No active Fusion design', title)
-            return
-        
-        # special case to make working with sketches easier 
-        if selType is f.Sketch and app.activeEditObject.classType == f.Sketch.classType:
-            return app.activeEditObject
+            if showMessage:
+                ui.messageBox('No active Fusion design', title)
+        elif selType is f.Sketch and app.activeEditObject.classType == f.Sketch.classType: # in sketch
+            result = app.activeEditObject
+        elif ui.activeSelections.count < 1:
+            if showMessage:
+                ui.messageBox('Select ' + typeName + ' before running command.', title)
+        else:
+            result = ui.activeSelections.item(0).entity
+            if not type(result) is selType:
+                result = None
+                if showMessage:
+                    ui.messageBox('Selected object needs to be a ' + typeName + ". It is a " + str(type(selected)) + ".", title)
 
-        if ui.activeSelections.count < 1:
-            ui.messageBox('Select ' + typeName + ' before running command.', title)
-            return
+        return result
 
-        selected = ui.activeSelections.item(0).entity
-        if not type(selected) is selType:
-            ui.messageBox('Selected object needs to be a ' + typeName + ". It is a " + str(type(selected)) + ".", title)
-            return
-        return selected
+    @classmethod
+    def getSelectedTypeOrNone(cls, selType):
+        result = None
+        if app.activeEditObject.classType == selType:
+            result = app.activeEditObject
+        return result
     
     @classmethod
     def selectEntity(cls, entity):

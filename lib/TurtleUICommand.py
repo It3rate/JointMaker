@@ -23,22 +23,22 @@ class TurtleUICommand():
             
             adsk.autoTerminate(False)
         except:
-            ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+            print('Failed:\n{}'.format(traceback.format_exc()))
     
     # Override 'on' methods to add custom funcionality
-    def onStartedRunning(self, cmd:core.Command):
+    def onStartedRunning(self, eventArgs:core.CommandCreatedEventArgs):
         pass
 
-    def onCreateUI(self, cmd:core.Command):
+    def onCreateUI(self, eventArgs:core.CommandCreatedEventArgs):
         pass
         
-    def onInputsChanged(self, cmd:core.Command):
+    def onInputsChanged(self, eventArgs:core.InputChangedEventArgs):
         pass
         
-    def onValidateInputs(self, cmd:core.Command):
+    def onValidateInputs(self, eventArgs:core.ValidateInputsEventArgs):
         pass
         
-    def onDestroy(self, cmd:core.Command):
+    def onDestroy(self, eventArgs:core.CommandEventArgs):
         pass
 
     # get handlers, only need to override to inject custom handlers
@@ -63,8 +63,8 @@ class BaseCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
         super().__init__()
         self.turtleUICommand = turtleUICommand
 
-    def notify(self, args):
-        cmd = args.command
+    def notify(self, eventArgs):
+        cmd = eventArgs.command
 
         onDestroy = self.turtleUICommand.getDestroyHandler()
         cmd.destroy.add(onDestroy)
@@ -78,32 +78,29 @@ class BaseCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
         cmd.validateInputs.add(onValidateInputs)
         _handlers.append(onValidateInputs)
 
-        self.turtleUICommand.onStartedRunning(cmd)
-        self.turtleUICommand.onCreateUI(cmd)
+        self.turtleUICommand.onStartedRunning(eventArgs)
+        self.turtleUICommand.onCreateUI(eventArgs)
 
-class BaseCommandInputChangedHandler(adsk.core.InputChangedEventHandler):
+class BaseCommandInputChangedHandler(core.InputChangedEventHandler):
     def __init__(self, turtleUICommand:TurtleUICommand):
         super().__init__()
         self.turtleUICommand = turtleUICommand
-    def notify(self, args):
-        cmd = args.command
-        self.turtleUICommand.onInputsChanged(cmd)
+    def notify(self, eventArgs):
+        self.turtleUICommand.onInputsChanged(eventArgs)
 
-class BaseValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
+class BaseValidateInputsHandler(core.ValidateInputsEventHandler):
     def __init__(self, turtleCommand:TurtleUICommand):
         super().__init__()
         self.turtleCommand = turtleCommand
-    def notify(self, args):
-        cmd = args.command
-        self.turtleCommand.onValidateInputs(cmd)
+    def notify(self, eventArgs):
+        self.turtleCommand.onValidateInputs(eventArgs)
 
 
-class BaseCommandDestroyHandler(adsk.core.CommandEventHandler):
+class BaseCommandDestroyHandler(core.CommandEventHandler):
     def __init__(self, turtleUICommand:TurtleUICommand):
         super().__init__()
         self.turtleUICommand = turtleUICommand
-    def notify(self, args):
-        cmd = args.command
-        self.turtleUICommand.onDestroy(cmd)
+    def notify(self, eventArgs):
+        self.turtleUICommand.onDestroy(eventArgs)
         adsk.terminate()
         
