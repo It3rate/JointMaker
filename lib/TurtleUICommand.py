@@ -38,6 +38,9 @@ class TurtleUICommand():
     def onValidateInputs(self, eventArgs:core.ValidateInputsEventArgs):
         pass
         
+    def onExecute(self, eventArgs:core.CommandEventArgs):
+        print("execute")
+
     def onDestroy(self, eventArgs:core.CommandEventArgs):
         pass
 
@@ -78,6 +81,10 @@ class BaseCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
         cmd.validateInputs.add(onValidateInputs)
         _handlers.append(onValidateInputs)
 
+        onExecute = self.turtleUICommand.getExecuteHandler()
+        cmd.execute.add(onExecute)
+        _handlers.append(onExecute)
+
         self.turtleUICommand.onStartedRunning(eventArgs)
         self.turtleUICommand.onCreateUI(eventArgs)
 
@@ -95,6 +102,12 @@ class BaseValidateInputsHandler(core.ValidateInputsEventHandler):
     def notify(self, eventArgs):
         self.turtleCommand.onValidateInputs(eventArgs)
 
+class BaseCommandExecuteHandler(core.CommandEventHandler):
+    def __init__(self, turtleCommand:TurtleUICommand):
+        super().__init__()
+        self.turtleCommand = turtleCommand
+    def notify(self, eventArgs):
+        self.turtleCommand.onExecute(eventArgs)
 
 class BaseCommandDestroyHandler(core.CommandEventHandler):
     def __init__(self, turtleUICommand:TurtleUICommand):
